@@ -1,4 +1,5 @@
 import json
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -14,7 +15,7 @@ from .drift import run_drift_check, install_pre_commit_hook
 from .executor import pick_next_ready_task, execute_task_with_agent, verify_and_unlock, rollback_task
 from .telemetry import print_cost_summary
 from .auditor import run_offline_audit
-from .ecosystem import publish_contract, subscribe_contract, acknowledge_contract
+from .ecosystem import publish_contract, subscribe_contract, acknowledge_contract, check_ecosystem_sync
 
 app = typer.Typer(help="Antigravity Autonomous Project Manager CLI", no_args_is_help=True)
 console = Console()
@@ -289,6 +290,73 @@ def why(module: str) -> None:
     for r in rows:
         table.add_row(r["adr_id"], r["decision"], r["rationale"], r["rejected_alternatives"] or "-")
     console.print(table)
+
+
+@app.command(name="watch")
+def watch_cmd(
+    interval: int = typer.Option(15, "--interval", "-i", help="Polling interval in seconds"),
+    daemon: bool = typer.Option(False, "--daemon", "-d", help="Run quietly in daemon mode logging to .antigravity/watch.log"),
+    max_iterations: Optional[int] = typer.Option(None, "--max-iterations", "-n", help="Exit after N cycles (useful for testing)"),
+) -> None:
+    """Run continuous governance monitor: inspects contracts, drift, backups & state changes."""
+    import time
+    conn = get_db()
+    vision = conn.execute("SELECT * FROM project_vision WHERE id = 1").fetchone()
+    project_name = vision["project_name"]
+    log_file = DB_PATH.parent / "watch.log"
+
+    console.print(f"[bold green]Starting UniGov Continuous Watcher for '{project_name}' (Interval: {interval}s)...[/bold green]")
+    if daemon:
+        console.print(f"[cyan]Daemon mode active. Logging to {log_file}[/cyan]")
+
+    cycle = 0
+    while True:
+        cycle += 1
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        alerts = []
+
+        # 1. Contract sync check
+        contract_alerts = check_ecosystem_sync(project_name)
+        if contract_alerts:
+            alerts.extend(contract_alerts)
+
+        # 2. Staged secret check
+        try:
+            diff_proc = subprocess.run(["git", "diff", "--cached"], capture_output=True, text=True)
+            diff_text = diff_proc.stdout
+            if diff_text:
+                for sig in ["AIzaSy", "BEGIN PRIVATE KEY", "sk-proj-", "ghp_"]:
+                    if sig in diff_text:
+                        alerts.append(f"SECURITY ALERT: Staged git diff contains potential secret signature '{sig}'")
+        except Exception:
+            pass
+
+        # 3. Periodic backup every 20 cycles
+        if cycle % 20 == 1:
+            try:
+                from .auditor import backup_state_db
+                backup_state_db()
+            except Exception:
+                pass
+
+        status_line = f"[{ts}] UniGov Watcher [Cycle #{cycle}]: Status: {'ALERT (' + str(len(alerts)) + ' issues)' if alerts else 'HEALTHY (Clean)'}"
+        if daemon:
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(status_line + "\n")
+                for a in alerts:
+                    f.write(f"   ! {a}\n")
+        else:
+            if alerts:
+                console.print(f"[bold red]{status_line}[/bold red]")
+                for a in alerts:
+                    console.print(f"   [red]! {a}[/red]")
+            else:
+                console.print(f"[dim]{status_line}[/dim]")
+
+        if max_iterations is not None and cycle >= max_iterations:
+            break
+
+        time.sleep(interval)
 
 
 if __name__ == "__main__":
