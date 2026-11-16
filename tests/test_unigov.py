@@ -3,8 +3,8 @@ import subprocess
 import pytest
 import typer
 
-from antigravity_pm import db, executor, drift, ecosystem, llm
-from antigravity_pm.models import FilePatch, SearchReplaceBlock
+from unigov import db, executor, drift, ecosystem, llm
+from unigov.models import FilePatch, SearchReplaceBlock
 
 
 @pytest.fixture
@@ -146,8 +146,8 @@ def test_extract_actionable_error_log():
 
 
 def test_dag_cycle_detection():
-    from antigravity_pm.ingest import detect_dag_cycles
-    from antigravity_pm.models import ExtractedTask
+    from unigov.ingest import detect_dag_cycles
+    from unigov.models import ExtractedTask
 
     # 1. Clean Acyclic Graph: T1 -> T2 -> T3
     clean_tasks = [
@@ -180,7 +180,7 @@ def test_dag_cycle_detection():
 
 def test_validate_code_syntax():
     from pathlib import Path
-    from antigravity_pm.executor import validate_code_syntax
+    from unigov.executor import validate_code_syntax
 
     # 1. Valid Python
     validate_code_syntax(Path("test.py"), "def foo():\n    return 42\n")
@@ -234,7 +234,7 @@ def test_dynamic_model_and_provider_routing(monkeypatch):
     monkeypatch.setattr(llm, "_call_gemini", mock_call_gemini)
     monkeypatch.setattr(llm, "_call_ollama", mock_call_ollama)
 
-    from antigravity_pm.models import DriftReport
+    from unigov.models import DriftReport
 
     # Call with Gemini default
     llm.generate_structured(None, "test", "prompt", DriftReport)
@@ -250,8 +250,8 @@ def test_dynamic_model_and_provider_routing(monkeypatch):
 
 
 def test_pre_apply_code_reviewer():
-    from antigravity_pm.reviewer import review_execution_plan
-    from antigravity_pm.models import AgentExecutionPlan, FilePatch, SearchReplaceBlock
+    from unigov.reviewer import review_execution_plan
+    from unigov.models import AgentExecutionPlan, FilePatch, SearchReplaceBlock
 
     # 1. Clean Plan
     clean_plan = AgentExecutionPlan(
@@ -322,7 +322,7 @@ def test_pre_apply_code_reviewer():
 
 @pytest.mark.anyio
 async def test_dashboard_app_headless(isolated_workspace):
-    from antigravity_pm.tui import AntigravityDashboardApp
+    from unigov.tui import AntigravityDashboardApp
 
     app = AntigravityDashboardApp()
     async with app.run_test() as pilot:
@@ -333,7 +333,7 @@ async def test_dashboard_app_headless(isolated_workspace):
 
 
 def test_reconcile_find_candidates_and_cascade(isolated_workspace):
-    from antigravity_pm.reconciler import find_candidate_files, cascade_task_completions
+    from unigov.reconciler import find_candidate_files, cascade_task_completions
     import sqlite3
     from pathlib import Path
 
@@ -380,9 +380,9 @@ def test_reconcile_find_candidates_and_cascade(isolated_workspace):
 
 
 def test_scaffolder_and_spec_verification(isolated_workspace):
-    from antigravity_pm.scaffolder import scaffold_documentation_suite, DIMENSION_METADATA
-    from antigravity_pm.invariants import verify_project_spec
-    from antigravity_pm.db import get_db
+    from unigov.scaffolder import scaffold_documentation_suite, DIMENSION_METADATA
+    from unigov.invariants import verify_project_spec
+    from unigov.db import get_db
     from pathlib import Path
 
     docs_dir = Path("docs")
@@ -404,8 +404,8 @@ def test_scaffolder_and_spec_verification(isolated_workspace):
 
 
 def test_topological_phase_locks_rail(isolated_workspace):
-    from antigravity_pm.invariants import apply_topological_phase_locks
-    from antigravity_pm.db import get_db
+    from unigov.invariants import apply_topological_phase_locks
+    from unigov.db import get_db
 
     conn = get_db()
 
@@ -435,7 +435,7 @@ def test_topological_phase_locks_rail(isolated_workspace):
 
 
 def test_introspect_self_and_target_analysis(isolated_workspace):
-    from antigravity_pm.introspect import introspect_unigov_self, analyze_target_project
+    from unigov.introspect import introspect_unigov_self, analyze_target_project
     ws, _ = isolated_workspace
 
     self_meta = introspect_unigov_self()
@@ -448,7 +448,7 @@ def test_introspect_self_and_target_analysis(isolated_workspace):
 
 
 def test_unigov_workspace_folders_and_migration(isolated_workspace):
-    from antigravity_pm.db import init_workspace_folders, migrate_legacy_store
+    from unigov.db import init_workspace_folders, migrate_legacy_store
     ws, _ = isolated_workspace
 
     # 1. Initialize modern .unigov directory tree
@@ -473,8 +473,8 @@ def test_unigov_workspace_folders_and_migration(isolated_workspace):
 
 
 def test_baseline_deterministic_scanner_and_tripwire(isolated_workspace):
-    from antigravity_pm.baseline import scan_and_lock_baseline, check_baseline_tripwire
-    from antigravity_pm.db import get_db
+    from unigov.baseline import scan_and_lock_baseline, check_baseline_tripwire
+    from unigov.db import get_db
     ws, conn = isolated_workspace
 
     # Setup dummy project files
@@ -512,7 +512,7 @@ def test_baseline_deterministic_scanner_and_tripwire(isolated_workspace):
 
 
 def test_unigovernor_ignores(isolated_workspace):
-    from antigravity_pm.baseline import load_unigovernor_ignores, should_ignore_path
+    from unigov.baseline import load_unigovernor_ignores, should_ignore_path
     ws, _ = isolated_workspace
 
     unigov_file = ws / ".unigovernor"
