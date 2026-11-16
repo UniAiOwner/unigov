@@ -2,6 +2,7 @@ import os
 import json
 import re
 import urllib.request
+from pathlib import Path
 from typing import Type, TypeVar, Optional
 import typer
 from pydantic import BaseModel
@@ -39,6 +40,20 @@ def generate_structured(
     return _call_gemini(conn, command_name, prompt, schema, complexity, model=model)
 
 
+def _get_gemini_api_key() -> str:
+    if os.environ.get("GEMINI_API_KEY"):
+        return os.environ["GEMINI_API_KEY"].strip()
+    secrets_path = Path.home() / ".agents" / "secrets" / "gemini_api_key.env"
+    if secrets_path.exists():
+        for line in secrets_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("export GEMINI_API_KEY="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+            elif line and not line.startswith("#"):
+                return line.strip().strip('"').strip("'")
+    return ""
+
+
 def _call_gemini(
     conn,
     command_name: str,
@@ -47,12 +62,12 @@ def _call_gemini(
     complexity: str,
     model: Optional[str] = None,
 ) -> T:
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = _get_gemini_api_key()
     if not api_key:
         console.print("[bold red]Error:[/bold red] GEMINI_API_KEY missing. Set it or export ANTIGRAVITY_PROVIDER=ollama.")
         raise typer.Exit(1)
 
-    default_model = "gemini-2.5-pro" if complexity == "pro" else "gemini-2.5-flash"
+    default_model = "gemini-3.5-flash-lite" if complexity == "pro" else "gemini-3.1-flash-lite"
     model_name = model or os.environ.get("GEMINI_MODEL") or default_model
     client = genai.Client(api_key=api_key)
     with console.status(f"[cyan]UniGov: Generating {command_name} using {model_name}...[/cyan]", spinner="dots"):

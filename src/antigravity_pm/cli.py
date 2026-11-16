@@ -90,9 +90,10 @@ def ingest(
     target: Path = typer.Argument(..., help="Path to markdown file or docs/ folder"),
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model name"),
     provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Override provider (gemini|ollama)"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Auto-approve without interactive prompts"),
 ) -> None:
     """Study project docs, resolve cross-doc conflicts, and build hierarchical DAG tasks."""
-    ingest_path(target, model=model, provider=provider)
+    ingest_path(target, model=model, provider=provider, auto_approve=yes)
 
 
 @app.command()

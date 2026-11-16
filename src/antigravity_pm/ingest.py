@@ -51,6 +51,7 @@ def ingest_path(
     target: Path,
     model: Optional[str] = None,
     provider: Optional[str] = None,
+    auto_approve: bool = False,
 ) -> None:
     if not target.exists():
         console.print(f"[bold red]Error:[/bold red] Path not found: {target}")
@@ -107,7 +108,7 @@ def ingest_path(
             console.print(f"   • [cyan]{c.doc_b}[/cyan]: {c.claim_b}")
             console.print(f"   • [green]Recommended Resolution[/green]: {c.recommended_resolution}")
 
-        if not typer.confirm("\nAccept recommended resolutions and continue?"):
+        if not auto_approve and not typer.confirm("\nAccept recommended resolutions and continue?"):
             console.print("[yellow]Aborted. Update your docs manually and re-run ingest.[/yellow]")
             raise typer.Exit(1)
 
@@ -119,7 +120,7 @@ def ingest_path(
             console.print(f"[bold yellow]{idx}. Cycle detected:[/bold yellow] [red]{cycle_str}[/red]")
 
         console.print("\n[yellow]Circular dependencies will cause a permanent deadlock in the execution state machine.[/yellow]")
-        if typer.confirm("Automatically break circular dependency back-edges?", default=True):
+        if auto_approve or typer.confirm("Automatically break circular dependency back-edges?", default=True):
             for c in cycles:
                 if len(c) >= 2:
                     from_task, to_task = c[-2], c[-1]
@@ -139,7 +140,7 @@ def ingest_path(
         border_style="cyan",
     ))
 
-    if not typer.confirm("Commit these constraints and DAG tasks to .antigravity/state.db?"):
+    if not auto_approve and not typer.confirm("Commit these constraints and DAG tasks to .antigravity/state.db?"):
         console.print("[yellow]Aborted by user.[/yellow]")
         return
 
