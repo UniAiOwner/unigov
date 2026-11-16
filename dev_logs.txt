@@ -1,0 +1,247 @@
+# 📋 Antigravity PM (UniGov) — Engineering Development Logs
+# Project: https://github.com/UniAiOwner/antigravity-pm
+
+## 📅 Date: 2026-11-16 — Antigravity Autonomous Project Manager (antigravity-pm) Bootstrap & Hardened Deployment
+
+### 🚀 Major Achievements:
+- Scaffolding and deploying the official `antigravity-pm` v0.2.0 Autonomous Project Manager & Orchestrator CLI engine to the Agentic Team base (`/media/uniai/UniAi/PROJECTS_MIGRATED/Agentic team/antigravity-pm`).
+- Applied 5 critical production hardening fixes:
+  1. Ollama/Gemini Markdown Code Fence Sanitizer (`_clean_json_str`) in `llm.py` ensuring 100% robust Pydantic JSON parsing without syntax crashes.
+  2. Multi-line whitespace & indentation-normalized resilient fallback in `executor.py` (`_apply_surgical_patches`) preventing patch rejections from minor space/tab variations.
+  3. Git HEAD initialization anchor (`create_git_checkpoint`) handling initial empty repositories without exit code 128 failures.
+  4. SQLite connection hardening (`PRAGMA busy_timeout = 5000;` and `PRAGMA journal_mode = WAL;`) in both local state DB (`db.py`) and global ecosystem registry (`ecosystem.py`).
+  5. Globally installed executable to `/home/uniai/.local/bin/antigravity-pm` via editable install linked with venv314.
+- Added comprehensive unit tests in `tests/test_antigravity_pm.py` covering surgical patching, whitespace tolerance, DAG cascade unblocking, secret leak prevention, and cross-project contract synchronization.
+
+### 🧪 Verification:
+- Automated test suite executed: 5/5 tests PASSED in 1.04s via pytest (`test_surgical_patch_atomic_validation`, `test_dag_cascade_unblocking`, `test_secret_leak_blocks_staged_diff`, `test_cross_project_contract_lifecycle`, `test_clean_json_str_with_fences`).
+- End-to-end sandbox walkthrough executed successfully: `antigravity-pm init`, `adr`, `why`, `status`, `status --export` (Markdown dashboard), `audit` (SQLite backup & orphan scan).
+- Global binary verification: `antigravity-pm --help` runs directly from bash in sub-second response.
+
+### 📌 Current State:
+- Version: v0.2.0
+- Home Base: `/media/uniai/UniAi/PROJECTS_MIGRATED/Agentic team/antigravity-pm`
+- Global Command: `antigravity-pm` (ready for multi-doc ingest, WBS extraction, and cross-project contract management).
+
+### 📝 Next Steps:
+- Ingest UniRetail Add Stock / Inventory documentation (`practical_multi_model_stock_inward_plan.md`) into `antigravity-pm` to deconstruct tasks for the next development sprint.
+
+---
+*Signed by: Shoeb Ahmad*
+
+
+## 📅 Date: 2026-11-16 — Public Open-Source Release of Antigravity PM (UniGov) on GitHub
+
+### 🚀 Major Achievements:
+- Created and published official public GitHub repository: [UniAiOwner/antigravity-pm](https://github.com/UniAiOwner/antigravity-pm).
+- Deployed standalone repository structure at `/media/uniai/UniAi/PROJECTS_MIGRATED/antigravity-pm` with Git branch `main`.
+- Authored best-in-class `README.md` featuring:
+  * Problem Statement: Context Drift, Hallucinated Done, File Wipes, and Ecosystem Desync.
+  * System Architecture: Vertical Mermaid DAG flowchart.
+  * 7 Architectural Pillars (Deterministic SQLite WAL, WBS, Zero-Noise Context Bundler, Surgical Diff Agent, Git Checkpoint & Rollback, Pre-Commit Drift Firewall, Ecosystem Contract Registry).
+  * Complete 17-Command CLI Reference with flags and usage examples.
+  * Dual Cloud (Gemini) & Local Offline (Ollama) configuration guides.
+- Published `.github/workflows/ci.yml` providing automated multi-version matrix testing across Python 3.11, 3.12, 3.13, and 3.14.
+- Embedded MIT License (`LICENSE`) attributing copyright to Founder Shoeb Ahmad & UniCore Technologies.
+
+### 🧪 Verification:
+- `gh repo view UniAiOwner/antigravity-pm` verified live and publicly accessible.
+- GitHub token credentials securely archived in `/media/uniai/UniAi/PROJECTS_MIGRATED/GITHUB Access.txt`.
+- Automated test suite verified passing (5/5 tests in 0.97s).
+
+### 📌 Current State:
+- Public URL: https://github.com/UniAiOwner/antigravity-pm
+- Status: Live, Public, Open-Source v0.2.0
+
+---
+*Signed by: Shoeb Ahmad*
+
+
+## 📅 Date: 2026-11-16 — Antigravity PM (UniGov) Phase 1 Hardening: Smart Error Scraper, DAG Cycle Detection & Live Spinner
+
+### 🚀 Major Achievements:
+- **Intelligent Error Log Scraper (`extract_actionable_error_log`)**:
+  - Implemented smart compiler/test failure regex extractor in `antigravity_pm/executor.py`.
+  - Replaced naive trailing 1500-char truncation with structured multi-line error window grouping across Python, Kotlin, Gradle, Rust, and TypeScript.
+  - Guarantees self-healing agent receives the exact file, line number, and root cause stack trace.
+- **Deterministic DAG Cycle Detection (`detect_dag_cycles`)**:
+  - Implemented DFS-based cycle detection in `antigravity_pm/ingest.py`.
+  - Audits WBS dependencies before commit to prevent permanent deadlock in the SQLite execution state machine.
+  - Automatically identifies circular back-edges and provides interactive human resolution.
+- **Rich Status Spinner & Visual Telemetry**:
+  - Added non-blocking animated status spinners (`console.status`) in `antigravity_pm/llm.py` for both Gemini Cloud and Ollama local inferences.
+  - Eliminates silent terminal freezes during multi-second LLM reasoning passes.
+- **Automated Verification Suite Expansion**:
+  - Added `test_extract_actionable_error_log` and `test_dag_cycle_detection` covering 2-node and 3-node dependency cycles.
+  - Expanded test suite from 5 to 7 tests, all passing with zero regressions.
+- **Synchronized & Deployed**:
+  - Synced code and tests to standalone Git repository `/media/uniai/UniAi/PROJECTS_MIGRATED/antigravity-pm`.
+  - Pushed commit `3b7b721` to GitHub (`UniAiOwner/antigravity-pm`) on branch `main`.
+
+### 🧪 Verification:
+- `pytest tests/ -v` passed (7/7 tests in 0.95s).
+- Git push confirmed live to `https://github.com/UniAiOwner/antigravity-pm`.
+
+### 📌 Current State:
+- Version: v0.2.1
+- Stability: Production Grade, All Test Gates Green
+- Public Repository: https://github.com/UniAiOwner/antigravity-pm
+
+### 📝 Next Steps:
+- Implement Phase 2: Dynamic CLI model selection flags (`--model`, `--provider`) and unified diff AST syntax pre-check.
+
+---
+*Signed by: Shoeb Ahmad*
+
+
+## 📅 Date: 2026-11-16 — Antigravity PM (UniGov) Phase 2 Implementation: Dynamic CLI Model Flags & Pre-Apply AST Syntax Validation
+
+### 🚀 Major Achievements:
+- **Dynamic CLI Model & Provider Flags (`--model` / `--provider`)**:
+  - Implemented `--model` (`-m`) and `--provider` (`-p`) across all core inference CLI commands: `ingest`, `execute`, `verify`, and `check-drift`.
+  - Added multi-tier model overriding in `antigravity_pm/llm.py` allowing runtime switching to modern models (e.g. `gemini-3.8-flash`, `qwen2.5-coder:32b`, `deepseek-coder`).
+  - Seamlessly toggles between Cloud (`gemini`) and Local Offline (`ollama`) without requiring environment variable exports.
+- **Pre-Apply AST Syntax & Delimiter Validation (`validate_code_syntax`)**:
+  - Implemented pre-flight syntax gating in `antigravity_pm/executor.py` invoked before ANY file write touches disk.
+  - Python files (`.py`): Validated via `ast.parse` to eliminate malformed syntax, indentation, and expression errors.
+  - JSON files (`.json`): Validated via `json.loads` to guarantee structural data integrity.
+  - Bracketed languages (`.kt`, `.java`, `.ts`, `.tsx`, `.rs`, `.go`): Validated via stateful string- and comment-aware delimiter balance scanner (`_check_balanced_brackets`).
+  - Atomic patch invariant: If ANY file in a multi-file patch fails syntax validation, disk writes are completely aborted, keeping the repository 100% clean.
+- **Test Suite Expansion**:
+  - Added `test_validate_code_syntax` and `test_dynamic_model_and_provider_routing`.
+  - Expanded test suite from 7 to 9 tests, all passing with zero warnings or regressions.
+- **Synchronized & Deployed**:
+  - Synced to standalone Git repository `/media/uniai/UniAi/PROJECTS_MIGRATED/antigravity-pm`.
+  - Pushed commit `e75aeb6` to GitHub `main` branch: `UniAiOwner/antigravity-pm`.
+
+### 🧪 Verification:
+- `pytest tests/ -v` passed (9/9 tests in 0.91s).
+- Git push confirmed live to `https://github.com/UniAiOwner/antigravity-pm`.
+
+### 📌 Current State:
+- Version: v0.2.2
+- Stability: Production Grade, All Test Gates Green
+- Public Repository: https://github.com/UniAiOwner/antigravity-pm
+
+### 📝 Next Steps:
+- Implement Phase 3: Interactive TUI Dashboard (`unigov ui` / `unigov dashboard`) and automated pre-apply code review checks.
+
+---
+*Signed by: Shoeb Ahmad*
+
+
+## 📅 Date: 2026-11-16 — Antigravity PM (UniGov) Phase 3 Implementation: Interactive Textual TUI Dashboard & Pre-Apply Quality Gate
+
+### 🚀 Major Achievements:
+- **Interactive Terminal TUI Dashboard (`unigov ui` / `unigov dashboard`)**:
+  - Implemented standalone full-featured Textual terminal dashboard (`antigravity_pm/tui.py`).
+  - Real-time Metrics Banner: Displays project vision, total atomic tasks, completion percentage, and cumulative AI compute spend (USD & INR).
+  - Split Workspace:
+    * Left Panel: Interactive `DataTable` with live status coloring (`COMPLETED`, `READY`, `IN_PROGRESS`, `PENDING`, `FAILED`) and keyboard row navigation.
+    * Right Panel: Deep Task Details inspector showing full specification, target files, shell verification command, dependency tree, and audit history.
+  - Registered global commands `unigov ui` and `unigov dashboard`.
+- **Pre-Apply Automated Quality Gate (`antigravity_pm/reviewer.py`)**:
+  - Implemented automated pre-flight code review executed before displaying proposals for human approval.
+  - **Constitutional Law-000 Enforcement**: Automatically detects and blocks `@Suppress`, `// @ts-ignore`, `// @ts-nocheck`, `// eslint-disable`, `# noqa`, and `# type: ignore` shortcuts in proposed patches.
+  - **Zero Secret Signature Defense**: Scans patch diffs for cloud access keys and tokens (`AIzaSy`, `ghp_`, `sk-proj-`, AWS `AKIA...`, private keys).
+  - **Law ACC-001 Integer Paise Defense**: Automatically audits financial and retail code paths (`pos`, `retail`, `invoice`, `cart`, `ledger`) to warn against floating-point operations.
+  - **AST Blast-Radius Summary**: Generates structured metrics on files touched, code deltas (+/- lines), and safety risk ratings (`LOW`, `MEDIUM`, `HIGH`).
+- **Test Suite Expansion & Version Bump**:
+  - Bumped project version to `v0.3.0` in `pyproject.toml`.
+  - Added unit tests: `test_pre_apply_code_reviewer` and asynchronous headless Textual dashboard test `test_dashboard_app_headless`.
+  - Expanded test suite from 9 to 11 tests (100% green).
+- **Public GitHub Sync**:
+  - Synced to standalone repo `/media/uniai/UniAi/PROJECTS_MIGRATED/antigravity-pm`.
+  - Pushed commit `83c5deb` to GitHub `main` branch (`UniAiOwner/antigravity-pm`).
+
+### 🧪 Verification:
+- `pytest tests/ -v` passed (11/11 tests in 1.29s).
+- GitHub repository updated with tests badge (11/11 passed): `https://github.com/UniAiOwner/antigravity-pm`.
+- `unigov --help` confirms `ui` and `dashboard` commands active.
+
+### 📌 Current State:
+- Version: v0.3.0
+- Stability: Production Grade, All Test Gates Green
+- Public Repository: https://github.com/UniAiOwner/antigravity-pm
+
+### 📝 Next Steps:
+- Ingest UniRetail stock inward / inventory specifications into `antigravity-pm` to drive next autonomous sprint.
+
+---
+*Signed by: Shoeb Ahmad*
+
+## 📅 Date: 2026-11-16 — UniGov Model Support & Non-Interactive Ingestion
+
+### 🚀 Major Achievements:
+- Added support for Google Gemini 3.5 / 3.1 Flash-Lite models in `antigravity-pm` LLM module.
+- Added automated `~/.agents/secrets/gemini_api_key.env` credential discovery in `_get_gemini_api_key()`.
+- Added non-interactive `--yes` / `-y` flag to `unigov ingest` command.
+- Verified live deployment and activated UniGov inside `UniRetail`.
+- Committed and pushed changes (`51bf2d0`) to GitHub `main` branch (`UniAiOwner/antigravity-pm`).
+
+### 🧪 Verification:
+- Automated tests: 11/11 pytest test cases passing in 1.70s.
+- Live ingestion in `UniRetail`: successfully extracted 6 hard constraints and 8 WBS tasks.
+
+### 📌 Current State:
+- Version: v0.3.0
+- Stability: Production Grade, All Test Gates Green
+- Public Repository: https://github.com/UniAiOwner/antigravity-pm
+
+### 📝 Next Steps:
+- Execute next atomic task from UniRetail DAG (`M1-DB-01-01`).
+
+---
+*Signed by: Shoeb Ahmad*
+
+## 📅 Date: 2026-11-16 — Autonomous Reality Reconciliation Engine (v0.4.0)
+
+### 🚀 Major Achievements:
+- Architected and implemented the **Autonomous Reality Reconciliation Engine** (`src/antigravity_pm/reconciler.py`).
+- Added CLI commands `unigov reconcile` and `unigov converge`, plus automatic `--reconcile` support in `unigov ingest`.
+- Implemented multi-stage candidate file discovery: exact path matching, source directory prioritization (`app/src/main`, `src/`), and `ripgrep` (`rg`) token density indexing.
+- Implemented LLM-based Ground-Truth Code Auditor using Gemini 3.1 Flash-Lite to evaluate whether existing code satisfies task specifications.
+- Implemented DAG completion cascading: automatically marks parent milestones as `COMPLETED` when all child tasks are done, and unlocks dependent tasks to `READY`.
+- Added test coverage (`test_reconcile_find_candidates_and_cascade`) expanding test suite to 12 passing tests in 1.40s.
+- Bumped version to `v0.4.0` in `pyproject.toml` and pushed to GitHub (`da42a75`).
+
+### 🧪 Verification:
+- Automated tests: 12/12 passing in 1.40s (`pytest tests/ -v`).
+- Live verification on UniRetail: accurately audited 5 tasks, recognized 3 completed tasks (`M1-DB-01-02`, `M2-UI-01-01`, `M2-UI-01-02`) and flipped Milestones M2 and M3 to `COMPLETED`.
+
+### 📌 Current State:
+- Version: v0.4.0
+- Stability: Production Grade, All Test Gates Green
+- Public Repository: https://github.com/UniAiOwner/antigravity-pm
+
+---
+*Signed by: Shoeb Ahmad*
+
+## 📅 Date: 2026-11-16 — UniGov v0.5.0: 15-Dimension Executable Architecture Release
+
+### 🚀 Major Achievements:
+- Released **UniGov v0.5.0 (The 15-Dimension Executable Architecture Suite)**.
+- Implemented `unigov scaffold-docs` (`scaffold`) command to generate all 15 industry specification files covering:
+  * Layer 1: Product, Domain Rules & FSM (Docs 01, 02, 03).
+  * Layer 2: Data Schemas, Migrations & Offline Sync (Docs 04, 05, 06).
+  * Layer 3: Design Tokens, 5-State UI & Hardware Peripherals (Docs 07, 08).
+  * Layer 4: Security, Keystore, Performance SLAs & Observability (Docs 09, 10, 11).
+  * Layer 5: On-Device AI/SLM limits, Merkle Audit Ledger, 60s Swap & Self-Healing (Docs 12, 13, 14, 15).
+- Implemented `unigov verify-spec` command to audit the 15 dimensions and compile machine-executable invariants into SQLite.
+- Implemented **Constitutional Topological Phase-Lock Rail**:
+  * Prevents UI screens (Layer 3) from being `READY` until Domain & Data layers (Layers 1 and 2) are `COMPLETED`.
+- Added automated DB schema auto-migration in `get_db()`.
+- Expanded automated unit tests to 14/14 passing tests in 1.62s.
+- Pushed commit `215195b` to GitHub `UniAiOwner/antigravity-pm`.
+
+### 🧪 Verification:
+- All 14 pytest unit tests passed in 1.62s.
+- Live test on UniRetail: scaffolded all 15 files and verified 100% coverage with 6 active machine invariants.
+
+### 📌 Current State:
+- Version: v0.5.0
+- Stability: Production Grade, All Test Gates Green
+- Public Repository: https://github.com/UniAiOwner/antigravity-pm
+
+---
+*Signed by: Shoeb Ahmad*
