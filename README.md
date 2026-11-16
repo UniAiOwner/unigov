@@ -1,12 +1,12 @@
-# 🪐 Antigravity PM (UniGov)
+# 🏛️ UniGov
 
-> **Deterministic State Machine + Autonomous Project Manager CLI for AI-Native & Multi-Repo Software Ecosystems.**  
+> **Sovereign Autonomous Project Governance Engine & Deterministic State Machine for AI-Native & Multi-Repo Software Ecosystems.**  
 > *Stop AI Context Drift. Eliminate Hallucinated Completions. Enforce Architectural Ground Truth.*
 
 [![Python Version](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-11%2F11%20passed-brightgreen.svg)]()
-[![Storage](https://img.shields.io/badge/storage-SQLite%20WAL-orange.svg)]()
+[![Tests](https://img.shields.io/badge/tests-18%2F18%20passed-brightgreen.svg)]()
+[![Storage](https://img.shields.io/badge/storage-.unigov%20SQLite%20WAL-orange.svg)]()
 [![Drift Protection](https://img.shields.io/badge/architecture%20drift-zero%20tolerance-red.svg)]()
 
 ---
