@@ -5,7 +5,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-5%2F5%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-11%2F11%20passed-brightgreen.svg)]()
 [![Storage](https://img.shields.io/badge/storage-SQLite%20WAL-orange.svg)]()
 [![Drift Protection](https://img.shields.io/badge/architecture%20drift-zero%20tolerance-red.svg)]()
 
@@ -145,6 +145,7 @@ uv pip install -e .
 | `antigravity-pm contract-ack` | Acknowledge that local project code is synced with upstream changes. |
 | `antigravity-pm adr` | Record an immutable Architecture Decision Record. |
 | `antigravity-pm why <module>` | Query ADR Ledger to recall design decisions and trade-offs. |
+| `antigravity-pm ui` (or `unigov ui`) | Launch full interactive Textual TUI dashboard for inspecting and navigating tasks. |
 
 ---
 

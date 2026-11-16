@@ -16,6 +16,7 @@ from .executor import pick_next_ready_task, execute_task_with_agent, verify_and_
 from .telemetry import print_cost_summary
 from .auditor import run_offline_audit
 from .ecosystem import publish_contract, subscribe_contract, acknowledge_contract, check_ecosystem_sync
+from .tui import launch_dashboard
 
 app = typer.Typer(help="Antigravity Autonomous Project Manager CLI", no_args_is_help=True)
 console = Console()
@@ -369,6 +370,18 @@ def watch_cmd(
             break
 
         time.sleep(interval)
+
+
+@app.command(name="ui")
+def ui_cmd() -> None:
+    """Launch full-featured interactive TUI dashboard for navigating and inspecting project DAG."""
+    launch_dashboard()
+
+
+@app.command(name="dashboard")
+def dashboard_cmd() -> None:
+    """Alias for 'unigov ui'."""
+    launch_dashboard()
 
 
 if __name__ == "__main__":

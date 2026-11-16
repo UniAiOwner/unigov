@@ -248,3 +248,86 @@ def test_dynamic_model_and_provider_routing(monkeypatch):
     llm.generate_structured(None, "test", "prompt", DriftReport, provider="ollama", model="qwen2.5-coder:32b")
     assert captured_calls[-1] == ("ollama", "qwen2.5-coder:32b", "fast")
 
+
+def test_pre_apply_code_reviewer():
+    from antigravity_pm.reviewer import review_execution_plan
+    from antigravity_pm.models import AgentExecutionPlan, FilePatch, SearchReplaceBlock
+
+    # 1. Clean Plan
+    clean_plan = AgentExecutionPlan(
+        reasoning="Clean patch",
+        patches=[
+            FilePatch(
+                file_path="src/dao.py",
+                is_new_file=False,
+                edits=[SearchReplaceBlock(search="x = 1", replace="x = 2")],
+                explanation="Update variable",
+            )
+        ],
+    )
+    clean_res = review_execution_plan(clean_plan)
+    assert clean_res.passed is True
+    assert clean_res.risk_level == "LOW"
+
+    # 2. Plan with Constitutional Law-000 Violation (@Suppress)
+    suppress_plan = AgentExecutionPlan(
+        reasoning="Dirty patch with suppression",
+        patches=[
+            FilePatch(
+                file_path="src/Cart.kt",
+                is_new_file=False,
+                edits=[SearchReplaceBlock(search="val x = 1", replace='@Suppress("UNCHECKED_CAST")\nval x = 1')],
+                explanation="Add suppress hack",
+            )
+        ],
+    )
+    suppress_res = review_execution_plan(suppress_plan)
+    assert suppress_res.passed is False
+    assert len(suppress_res.suppression_violations) >= 1
+    assert suppress_res.risk_level == "HIGH"
+
+    # 3. Plan with Secret Leak
+    secret_plan = AgentExecutionPlan(
+        reasoning="Leaked secret",
+        patches=[
+            FilePatch(
+                file_path="src/config.py",
+                is_new_file=False,
+                edits=[SearchReplaceBlock(search="# key", replace='KEY = "AIzaSyFakeSecretToken12345"')],
+                explanation="Add leaked key",
+            )
+        ],
+    )
+    secret_res = review_execution_plan(secret_plan)
+    assert secret_res.passed is False
+    assert len(secret_res.secret_violations) >= 1
+    assert secret_res.risk_level == "HIGH"
+
+    # 4. Plan with Law ACC-001 Financial Float Warning
+    float_plan = AgentExecutionPlan(
+        reasoning="Float math in financial file",
+        patches=[
+            FilePatch(
+                file_path="src/pos_cart.py",
+                is_new_file=False,
+                edits=[SearchReplaceBlock(search="total = 0", replace="total = amount * 0.18")],
+                explanation="Calculate GST using float multiplier",
+            )
+        ],
+    )
+    float_res = review_execution_plan(float_plan)
+    assert len(float_res.financial_violations) >= 1
+    assert "Law ACC-001" in float_res.financial_violations[0]
+
+
+@pytest.mark.anyio
+async def test_dashboard_app_headless(isolated_workspace):
+    from antigravity_pm.tui import AntigravityDashboardApp
+
+    app = AntigravityDashboardApp()
+    async with app.run_test() as pilot:
+        assert app.is_running
+        table = app.query_one("DataTable")
+        assert table is not None
+        await pilot.press("q")
+

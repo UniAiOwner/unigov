@@ -12,6 +12,7 @@ from rich.panel import Panel
 from .db import get_db
 from .llm import generate_structured
 from .models import AgentExecutionPlan
+from .reviewer import review_execution_plan, print_quality_gate_table
 
 console = Console()
 
@@ -358,6 +359,14 @@ def _apply_surgical_patches(patches) -> None:
 
 def _preview_and_apply_plan(conn, task_id: str, plan: AgentExecutionPlan) -> bool:
     console.print(Panel(f"[bold]Agent Reasoning:[/bold]\n{plan.reasoning}", title=f"Surgical Proposal: {task_id}"))
+
+    # Automated Quality Gate Review (Law-000, Secrets, ACC-001, Blast Radius)
+    gate_res = review_execution_plan(plan)
+    print_quality_gate_table(gate_res)
+
+    if not gate_res.passed:
+        console.print("[bold red]Pre-Apply Quality Gate FAILED (Law-000 or Secret violation). Patch application blocked.[/bold red]")
+        return False
 
     for patch in plan.patches:
         console.print(f"\n[bold yellow]File:[/bold yellow] {patch.file_path} — [italic]{patch.explanation}[/italic]")
