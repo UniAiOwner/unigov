@@ -1,0 +1,46 @@
+{
+  "total_files": 19,
+  "subsystem_count": 3,
+  "subsystems": {
+    "M0-BASE-TEST": {
+      "id": "M0-BASE-TEST",
+      "title": "Unit & Integration Test Verification Suites",
+      "layer": "LAYER_4_SECURITY",
+      "files": [
+        "tests/test_antigravity_pm.py"
+      ]
+    },
+    "M0-BASE-PLATFORM": {
+      "id": "M0-BASE-PLATFORM",
+      "title": "Application Foundation & Entry Points",
+      "layer": "LAYER_1_DOMAIN",
+      "files": [
+        "src/antigravity_pm/auditor.py",
+        "src/antigravity_pm/baseline.py",
+        "src/antigravity_pm/cli.py",
+        "src/antigravity_pm/db.py",
+        "src/antigravity_pm/drift.py",
+        "src/antigravity_pm/ecosystem.py",
+        "src/antigravity_pm/executor.py",
+        "src/antigravity_pm/ingest.py",
+        "src/antigravity_pm/introspect.py",
+        "src/antigravity_pm/invariants.py",
+        "src/antigravity_pm/llm.py",
+        "src/antigravity_pm/reconciler.py",
+        "src/antigravity_pm/reviewer.py",
+        "src/antigravity_pm/scaffolder.py",
+        "src/antigravity_pm/telemetry.py",
+        "src/antigravity_pm/tui.py",
+        "src/antigravity_pm/__init__.py"
+      ]
+    },
+    "M0-BASE-DOM": {
+      "id": "M0-BASE-DOM",
+      "title": "Domain Core Models, Math & Rules",
+      "layer": "LAYER_1_DOMAIN",
+      "files": [
+        "src/antigravity_pm/models.py"
+      ]
+    }
+  }
+}

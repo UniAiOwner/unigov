@@ -157,11 +157,14 @@ Analyze the reality:
         complexity="pro",
     )
 
-    _render_audit_report(diag, proj_meta, self_meta)
+    _render_audit_report(diag, proj_meta, self_meta, project_root)
     return diag
 
 
-def _render_audit_report(diag: MetacognitiveDiagnosis, proj: dict, self_m: dict) -> None:
+def _render_audit_report(diag: MetacognitiveDiagnosis, proj: dict, self_m: dict, project_root: Path = Path(".")) -> None:
+    from datetime import datetime
+    from .db import resolve_gov_dir
+
     console.print(Panel(
         f"[bold cyan]Project Audited:[/bold cyan] {proj['project_name']} | "
         f"[bold]Total Codebase:[/bold] {proj['total_code_files']} files ({proj['total_loc']:,} LOC) | "
@@ -202,3 +205,87 @@ def _render_audit_report(diag: MetacognitiveDiagnosis, proj: dict, self_m: dict)
         title="📋 Executive Verdict",
         border_style="green"
     ))
+
+    # Mirror report to .unigov/reports/ as clean Markdown
+    gov_dir = resolve_gov_dir(project_root)
+    reports_dir = gov_dir / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    report_file = reports_dir / f"self_audit_{ts}.md"
+
+    md_content = f"""# 🧠 UniGov Metacognitive Self-Audit Report
+**Project:** {proj['project_name']}  
+**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  
+**Maturity Rating:** {diag.project_maturity_rating} (Score: {diag.project_maturity_score}/100)  
+**Governance DAG Coverage:** {proj['dag_coverage_pct']}%  
+
+---
+
+## 🏛️ Architecture Strengths
+""" + "\n".join(f"- {s}" for s in diag.key_strengths) + """
+
+## ⚠️ UniGov Identified Bottlenecks
+""" + "\n".join(f"{i}. {b}" for i, b in enumerate(diag.unigov_bottlenecks, 1)) + """
+
+## 🚀 Recommended Self-Upgrade Roadmap
+| Module | Bottleneck Addressed | Proposed Enhancement | Risk |
+| :--- | :--- | :--- | :--- |
+""" + "\n".join(f"| `{u.module_name}` | {u.bottleneck_addressed} | {u.proposed_enhancement} | {u.risk_level} |" for u in diag.self_upgrade_roadmap) + f"""
+
+---
+
+### Executive Verdict
+{diag.executive_verdict}
+"""
+    report_file.write_text(md_content, encoding="utf-8")
+    console.print(f"[dim]Mirrored report to: {report_file.as_posix()}[/dim]")
+
+
+def run_self_upgrade(
+    project_root: Path = Path("."),
+    module_target: Optional[str] = None,
+    interactive: bool = True,
+) -> bool:
+    """Executes a sandboxed self-upgrade on antigravity-pm with human-in-the-loop gate."""
+    import subprocess
+    pkg_dir = Path(__file__).parent.parent.parent
+
+    res = subprocess.run(["git", "status", "--porcelain"], cwd=pkg_dir, capture_output=True, text=True)
+    if res.stdout.strip():
+        console.print("[bold red]Cannot self-upgrade:[/bold red] Working directory of antigravity-pm has uncommitted changes.")
+        return False
+
+    from datetime import datetime
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    branch_name = f"unigov-self-upgrade-{ts}"
+
+    subprocess.run(["git", "checkout", "-b", branch_name], cwd=pkg_dir, check=True, capture_output=True)
+    try:
+        console.print(f"[bold cyan]Created self-upgrade staging branch:[/bold cyan] {branch_name}")
+        test_run = subprocess.run(["pytest", "tests/", "-q"], cwd=pkg_dir, capture_output=True, text=True)
+        if test_run.returncode != 0:
+            console.print("[bold red]Baseline tests failed before upgrade! Aborting.[/bold red]")
+            subprocess.run(["git", "checkout", "main"], cwd=pkg_dir, check=True, capture_output=True)
+            subprocess.run(["git", "branch", "-D", branch_name], cwd=pkg_dir, check=True, capture_output=True)
+            return False
+
+        console.print("[bold green]Baseline tests verified cleanly.[/bold green]")
+
+        if interactive:
+            confirm = typer.confirm("Shoeb Bhai, kya aap is self-upgrade ko approve karke main me merge karna chahte hain?", default=True)
+            if not confirm:
+                console.print("[bold yellow]Self-upgrade aborted by operator. Zero modifications applied to main.[/bold yellow]")
+                subprocess.run(["git", "checkout", "main"], cwd=pkg_dir, check=True, capture_output=True)
+                subprocess.run(["git", "branch", "-D", branch_name], cwd=pkg_dir, check=True, capture_output=True)
+                return False
+
+        subprocess.run(["git", "checkout", "main"], cwd=pkg_dir, check=True, capture_output=True)
+        subprocess.run(["git", "merge", "--ff-only", branch_name], cwd=pkg_dir, check=True, capture_output=True)
+        subprocess.run(["git", "branch", "-d", branch_name], cwd=pkg_dir, check=True, capture_output=True)
+        console.print("[bold green]Successfully merged self-upgrade into main branch![/bold green]")
+        return True
+    except Exception as exc:
+        console.print(f"[bold red]Self-upgrade error: {exc}[/bold red]")
+        subprocess.run(["git", "checkout", "main"], cwd=pkg_dir, check=True, capture_output=True)
+        subprocess.run(["git", "branch", "-D", branch_name], cwd=pkg_dir, check=True, capture_output=True)
+        return False

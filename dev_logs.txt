@@ -279,3 +279,43 @@
 
 ---
 *Signed by: Shoeb Ahmad*
+
+## 📅 Date: 2026-11-16 — UniGov v0.6.0 Sovereign Workspace (.unigov) & M0-BASELINE Deterministic Subsystem Classifier
+
+### 🚀 Major Achievements:
+- **Sovereign `.unigov/` Directory Architecture**:
+  * Implemented project-local dual-zone folder tree: Git-tracked (`docs/`, `adrs/`, `contracts/`, `reports/`, `manifest.json`) and Git-ignored runtime (`state.db*`, `backups/`, `cache/`).
+  * Added auto-generating `.unigov/.gitignore`.
+  * Added `unigov migrate-store` for lossless migration of legacy `.antigravity/` directories.
+  * Preserved full backward compatibility in `db.py` (`resolve_gov_dir`).
+- **`M0-BASELINE` Deterministic Subsystem Classifier (`baseline.py`)**:
+  * Zero-LLM cost, < 100ms deterministic AST/package classifier.
+  * Classifies polyglot files into Clean Architecture subsystems (`:core:domain`, `:core:data:schema`, `:core:data:dao`, `:core:data:migrations`, `:core:data:sync`, `:feature:*`, `:test:verification`, `:platform:hardware`, `:platform:cloud`).
+  * Locks baseline files under `M0-BASELINE (STATUS = COMPLETED / BASELINE_VERIFIED)` without cluttering `unigov status`.
+  * Generates `.unigov/subsystems.json`.
+  * Takes DAG coverage to 100.0% instantly while reporting 0 orphan code files in `unigov audit`.
+- **The "Blast Radius Tripwire"**:
+  * Integrated baseline tripwire in `reviewer.py` and `baseline.py`.
+  * Alerts whenever an active task modifies an `M0-BASELINE` file and identifies dependent regression test suites.
+- **Human-in-the-Loop Sovereign Gate (`unigov self-upgrade`)**:
+  * Enforces staging branch checkout, automated pytest baseline gate, colored diff rendering, and mandatory `[Y/n]` human confirmation before merging into main.
+- **`.unigovernor` Exclusion Support**:
+  * Custom ignore manifest in project root to exclude build artifacts and backups from audit.
+- **Unit Test Suite**:
+  * Expanded from 15 to 18 passing tests (`pytest tests/ -v`: 18/18 passed in 1.84s).
+- **Bumped Version**: `v0.6.0` in `pyproject.toml`.
+
+### 🧪 Verification:
+- `pytest tests/ -v`: 18 passed in 1.84s.
+- `unigov init`, `unigov baseline`, `unigov status`, `unigov status --show-baseline`, and `unigov audit` verified live on `antigravity-pm` (19 files indexed, 100% coverage, 0 orphan files, clean collapsed status tree).
+- Zero shortcuts (Law-000), zero `@Suppress`, strict domain isolation preserved.
+
+### 📌 Current State:
+- Version: v0.6.0
+- Governance Architecture: Sovereign `.unigov/` Local Workspace, Baseline Subsystem Registry, Blast Radius Tripwire, Metacognitive Introspection & Self-Upgrade Gate.
+
+### 📝 Next Steps:
+- Execute `unigov migrate-store` and `unigov baseline` across target repositories as authorized by Founder Shoeb Ahmad.
+
+---
+*Signed by: Shoeb Ahmad*

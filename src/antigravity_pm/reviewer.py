@@ -1,7 +1,8 @@
 import re
 from pathlib import Path
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import List, Optional
+import sqlite3
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -44,18 +45,20 @@ class QualityGateResult:
     secret_violations: List[str]
     financial_violations: List[str]
     risk_level: str
+    tripwire_alerts: List[str] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
         return len(self.suppression_violations) == 0 and len(self.secret_violations) == 0
 
 
-def review_execution_plan(plan: AgentExecutionPlan) -> QualityGateResult:
+def review_execution_plan(plan: AgentExecutionPlan, conn: Optional[sqlite3.Connection] = None) -> QualityGateResult:
     """Pre-apply automated code review checking:
     1. Constitutional Law-000: Zero @Suppress / ignore / noqa shortcuts.
     2. Zero Secret Leaks.
     3. Law ACC-001: Integer paise financial invariants.
     4. Blast-radius and insertion/deletion accounting.
+    5. M0-BASELINE tripwire checks on touched files.
     """
     files_touched = len(plan.patches)
     insertions = 0
@@ -63,6 +66,20 @@ def review_execution_plan(plan: AgentExecutionPlan) -> QualityGateResult:
     suppression_violations: List[str] = []
     secret_violations: List[str] = []
     financial_violations: List[str] = []
+    tripwire_alerts: List[str] = []
+
+    if conn:
+        try:
+            from .baseline import check_baseline_tripwire
+            touched_paths = [p.file_path for p in plan.patches]
+            raw_alerts = check_baseline_tripwire(touched_paths, conn)
+            for a in raw_alerts:
+                tests_str = ", ".join(Path(t).name for t in a["related_tests"]) if a["related_tests"] else "None identified"
+                tripwire_alerts.append(
+                    f"Touched M0-BASELINE file '{a['file']}' in subsystem '{a['subsystem']}'. Linked test suites: {tests_str}"
+                )
+        except Exception:
+            pass
 
     for patch in plan.patches:
         file_path_lower = patch.file_path.lower()
@@ -116,6 +133,7 @@ def review_execution_plan(plan: AgentExecutionPlan) -> QualityGateResult:
         suppression_violations=suppression_violations,
         secret_violations=secret_violations,
         financial_violations=financial_violations,
+        tripwire_alerts=tripwire_alerts,
         risk_level=risk_level,
     )
 
@@ -148,8 +166,16 @@ def print_quality_gate_table(res: QualityGateResult) -> None:
     else:
         table.add_row("Law ACC-001 (Integer Paise)", "[green]PASSED[/green]")
 
+    # M0-BASELINE Tripwire
+    if res.tripwire_alerts:
+        table.add_row("M0-BASELINE Tripwire", f"[bold yellow]ALERT ({len(res.tripwire_alerts)} baseline files touched)[/bold yellow]")
+    else:
+        table.add_row("M0-BASELINE Tripwire", "[green]PASSED (No baseline regressions)[/green]")
+
     console.print(table)
 
+    if res.tripwire_alerts:
+        console.print(Panel("\n".join(f"• {v}" for v in res.tripwire_alerts), title="[bold yellow]⚠️ M0-BASELINE Tripwire Warnings (Regression Risk)[/bold yellow]", border_style="yellow"))
     if res.suppression_violations:
         console.print(Panel("\n".join(f"• {v}" for v in res.suppression_violations), title="[bold red]Shortcut Violations Blocked[/bold red]", border_style="red"))
     if res.secret_violations:

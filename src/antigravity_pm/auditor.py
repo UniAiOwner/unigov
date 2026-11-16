@@ -53,12 +53,18 @@ def run_offline_audit(project_root: Path = Path(".")) -> None:
         elif t["status"] == "FAILED":
             failed_tasks.append(f"{t['task_id']} ({t['title']})")
 
+    from .baseline import load_unigovernor_ignores, should_ignore_path
+    ignore_patterns = load_unigovernor_ignores(project_root)
+
     orphan_files: list[str] = []
     for path in project_root.rglob("*"):
-        if not path.is_file() or any(part in IGNORE_DIRS for part in path.parts):
+        if not path.is_file():
+            continue
+        rel_path = path.relative_to(project_root)
+        if should_ignore_path(rel_path, ignore_patterns):
             continue
         if path.suffix in CODE_EXTENSIONS:
-            rel_posix = path.as_posix()
+            rel_posix = rel_path.as_posix()
             if rel_posix not in tracked_files:
                 orphan_files.append(rel_posix)
 

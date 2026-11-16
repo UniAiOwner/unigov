@@ -447,4 +447,89 @@ def test_introspect_self_and_target_analysis(isolated_workspace):
     assert "dag_coverage_pct" in target_meta
 
 
+def test_unigov_workspace_folders_and_migration(isolated_workspace):
+    from antigravity_pm.db import init_workspace_folders, migrate_legacy_store
+    ws, _ = isolated_workspace
+
+    # 1. Initialize modern .unigov directory tree
+    gov_dir = init_workspace_folders(ws)
+    assert (gov_dir / "docs").is_dir()
+    assert (gov_dir / "adrs").is_dir()
+    assert (gov_dir / "contracts").is_dir()
+    assert (gov_dir / "reports").is_dir()
+    assert (gov_dir / "backups").is_dir()
+    assert (gov_dir / ".gitignore").is_file()
+    assert "state.db" in (gov_dir / ".gitignore").read_text(encoding="utf-8")
+
+    # 2. Test migration from legacy .antigravity
+    legacy = ws / ".antigravity"
+    legacy.mkdir(exist_ok=True)
+    (legacy / "dummy.txt").write_text("legacy data", encoding="utf-8")
+
+    success, msg = migrate_legacy_store(ws)
+    assert success is True
+    assert (gov_dir / "dummy.txt").is_file()
+    assert (gov_dir / "dummy.txt").read_text(encoding="utf-8") == "legacy data"
+
+
+def test_baseline_deterministic_scanner_and_tripwire(isolated_workspace):
+    from antigravity_pm.baseline import scan_and_lock_baseline, check_baseline_tripwire
+    from antigravity_pm.db import get_db
+    ws, conn = isolated_workspace
+
+    # Setup dummy project files
+    (ws / "app" / "src" / "main" / "domain").mkdir(parents=True, exist_ok=True)
+    (ws / "app" / "src" / "main" / "domain" / "Money.kt").write_text("data class Money(val paise: Long)", encoding="utf-8")
+
+    (ws / "app" / "src" / "main" / "data" / "entity").mkdir(parents=True, exist_ok=True)
+    (ws / "app" / "src" / "main" / "data" / "entity" / "InvoiceEntity.kt").write_text("class InvoiceEntity", encoding="utf-8")
+
+    (ws / "app" / "src" / "test").mkdir(parents=True, exist_ok=True)
+    (ws / "app" / "src" / "test" / "InvoiceEntityTest.kt").write_text("class InvoiceEntityTest", encoding="utf-8")
+
+    # Run deterministic baseline lock
+    stats = scan_and_lock_baseline(conn, project_root=ws)
+    assert stats["total_files"] >= 3
+    assert "M0-BASE-DOM" in stats["subsystems"]
+    assert "M0-BASE-SCHEMA" in stats["subsystems"]
+    assert "M0-BASE-TEST" in stats["subsystems"]
+
+    # Verify M0-BASELINE in tasks table
+    m0 = conn.execute("SELECT * FROM tasks WHERE task_id = 'M0-BASELINE'").fetchone()
+    assert m0["status"] == "COMPLETED"
+    assert m0["is_baseline"] == 1
+
+    # Verify child subsystem
+    schema_sub = conn.execute("SELECT * FROM tasks WHERE task_id = 'M0-BASE-SCHEMA'").fetchone()
+    assert schema_sub["status"] == "COMPLETED"
+    assert "InvoiceEntity.kt" in schema_sub["target_files_json"]
+
+    # Test Tripwire Alert
+    alerts = check_baseline_tripwire(["app/src/main/data/entity/InvoiceEntity.kt"], conn)
+    assert len(alerts) == 1
+    assert alerts[0]["subsystem_id"] == "M0-BASE-SCHEMA"
+    assert "InvoiceEntityTest.kt" in alerts[0]["related_tests"][0]
+
+
+def test_unigovernor_ignores(isolated_workspace):
+    from antigravity_pm.baseline import load_unigovernor_ignores, should_ignore_path
+    ws, _ = isolated_workspace
+
+    unigov_file = ws / ".unigovernor"
+    unigov_file.write_text("backups_*\n*.tmp\nignored_dir/**\n", encoding="utf-8")
+
+    patterns = load_unigovernor_ignores(ws)
+    assert "backups_*" in patterns
+    assert "*.tmp" in patterns
+
+    p1 = ws / "backups_live" / "file.kt"
+    p2 = ws / "test.tmp"
+    p3 = ws / "valid.kt"
+
+    assert should_ignore_path(p1.relative_to(ws), patterns) is True
+    assert should_ignore_path(p2.relative_to(ws), patterns) is True
+    assert should_ignore_path(p3.relative_to(ws), patterns) is False
+
+
+
 
