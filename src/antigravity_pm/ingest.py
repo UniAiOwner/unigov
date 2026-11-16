@@ -1,6 +1,7 @@
 import json
 import hashlib
 from pathlib import Path
+from typing import Optional
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -46,7 +47,11 @@ def detect_dag_cycles(tasks: list) -> list[list[str]]:
     return cycles
 
 
-def ingest_path(target: Path) -> None:
+def ingest_path(
+    target: Path,
+    model: Optional[str] = None,
+    provider: Optional[str] = None,
+) -> None:
     if not target.exists():
         console.print(f"[bold red]Error:[/bold red] Path not found: {target}")
         raise typer.Exit(1)
@@ -84,7 +89,15 @@ def ingest_path(target: Path) -> None:
     {''.join(combined_corpus)}
     """
 
-    analysis = generate_structured(conn, "ingest", prompt, MultiDocAnalysis, complexity="fast")
+    analysis = generate_structured(
+        conn,
+        "ingest",
+        prompt,
+        MultiDocAnalysis,
+        complexity="fast",
+        model=model,
+        provider=provider,
+    )
 
     if analysis.conflicts:
         console.print(Panel("[bold red]CROSS-DOCUMENT CONFLICTS DETECTED[/bold red]", border_style="red"))

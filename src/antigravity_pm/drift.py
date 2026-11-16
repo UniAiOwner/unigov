@@ -1,6 +1,7 @@
 import json
 import subprocess
 from pathlib import Path
+from typing import Optional
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -20,7 +21,12 @@ SECRET_SIGNATURES = [
 ]
 
 
-def run_drift_check(staged: bool = True, skip_llm: bool = False) -> None:
+def run_drift_check(
+    staged: bool = True,
+    skip_llm: bool = False,
+    model: Optional[str] = None,
+    provider: Optional[str] = None,
+) -> None:
     conn = get_db()
     vision = conn.execute("SELECT * FROM project_vision WHERE id = 1").fetchone()
     constraints = json.loads(vision["hard_constraints_json"])
@@ -62,7 +68,15 @@ def run_drift_check(staged: bool = True, skip_llm: bool = False) -> None:
     {diff_text[:16000]}
     """
 
-    report = generate_structured(conn, "check-drift", prompt, DriftReport, complexity="fast")
+    report = generate_structured(
+        conn,
+        "check-drift",
+        prompt,
+        DriftReport,
+        complexity="fast",
+        model=model,
+        provider=provider,
+    )
 
     if report.drift_detected:
         conn.execute(

@@ -85,9 +85,13 @@ def init(
 
 
 @app.command()
-def ingest(target: Path = typer.Argument(..., help="Path to markdown file or docs/ folder")) -> None:
+def ingest(
+    target: Path = typer.Argument(..., help="Path to markdown file or docs/ folder"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model name"),
+    provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Override provider (gemini|ollama)"),
+) -> None:
     """Study project docs, resolve cross-doc conflicts, and build hierarchical DAG tasks."""
-    ingest_path(target)
+    ingest_path(target, model=model, provider=provider)
 
 
 @app.command()
@@ -177,9 +181,13 @@ def next_cmd() -> None:
 
 
 @app.command()
-def execute(task_id: str = typer.Argument(..., help="Atomic task_id to implement")) -> None:
+def execute(
+    task_id: str = typer.Argument(..., help="Atomic task_id to implement"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model name"),
+    provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Override provider (gemini|ollama)"),
+) -> None:
     """Invoke Coding Agent on a task and apply surgical patches ONLY after human approval."""
-    execute_task_with_agent(task_id)
+    execute_task_with_agent(task_id, model=model, provider=provider)
 
 
 @app.command()
@@ -187,9 +195,11 @@ def verify(
     task_id: str = typer.Argument(..., help="Task ID to verify and lock"),
     auto_fix: bool = typer.Option(False, "--auto-fix", help="Feed build/test errors back to agent for repair"),
     retries: int = typer.Option(2, "--retries", help="Max self-healing attempts"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model name for auto-fix"),
+    provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Override provider (gemini|ollama)"),
 ) -> None:
     """Run Zero-Trust verification gates with optional self-healing repair loop."""
-    verify_and_unlock(task_id, auto_fix=auto_fix, max_retries=retries)
+    verify_and_unlock(task_id, auto_fix=auto_fix, max_retries=retries, model=model, provider=provider)
 
 
 @app.command()
@@ -202,9 +212,11 @@ def rollback(task_id: str = typer.Argument(..., help="Task ID to revert to pre-e
 def check_drift(
     staged: bool = typer.Option(True, "--staged/--unstaged"),
     skip_llm: bool = typer.Option(False, "--skip-llm", help="Run only deterministic security scan"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model name"),
+    provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Override provider (gemini|ollama)"),
 ) -> None:
     """Audit git diff for secret leaks and architectural drift."""
-    run_drift_check(staged=staged, skip_llm=skip_llm)
+    run_drift_check(staged=staged, skip_llm=skip_llm, model=model, provider=provider)
 
 
 @app.command(name="install-hook")

@@ -177,3 +177,74 @@ def test_dag_cycle_detection():
     flat_cycle = cycles_3[0]
     assert flat_cycle[0] == flat_cycle[-1]  # Forms a closed loop
 
+
+def test_validate_code_syntax():
+    from pathlib import Path
+    from antigravity_pm.executor import validate_code_syntax
+
+    # 1. Valid Python
+    validate_code_syntax(Path("test.py"), "def foo():\n    return 42\n")
+
+    # 2. Invalid Python syntax raises ValueError
+    with pytest.raises(ValueError, match="AST Syntax Validation Error"):
+        validate_code_syntax(Path("broken.py"), "def foo(:\n    return 42\n")
+
+    # 3. Valid JSON
+    validate_code_syntax(Path("data.json"), '{"name": "UniRetail", "active": true}')
+
+    # 4. Invalid JSON raises ValueError
+    with pytest.raises(ValueError, match="JSON Syntax Validation Error"):
+        validate_code_syntax(Path("bad.json"), '{"name": "UniRetail", broken}')
+
+    # 5. Valid Kotlin / TS with nested strings and comments
+    kt_code = """
+    // Single line comment with unclosed {
+    /* Block comment with unclosed ( */
+    fun calculateTotal(items: List<Item>): Int {
+        val note = "String literal with unmatched } and )"
+        return items.sumOf { it.price }
+    }
+    """
+    validate_code_syntax(Path("App.kt"), kt_code)
+
+    # 6. Unmatched bracket in TS/Kotlin raises ValueError
+    with pytest.raises(ValueError, match="Unclosed bracket|Mismatched bracket"):
+        validate_code_syntax(Path("App.tsx"), "export const View = () => { return (<div>; }")
+
+
+def test_dynamic_model_and_provider_routing(monkeypatch):
+    captured_calls = []
+
+    def mock_call_gemini(conn, command_name, prompt, schema, complexity, model=None):
+        captured_calls.append(("gemini", model, complexity))
+        return schema(
+            drift_detected=False,
+            violated_constraints=[],
+            explanation="Clean mock",
+        )
+
+    def mock_call_ollama(prompt, schema, complexity, model=None):
+        captured_calls.append(("ollama", model, complexity))
+        return schema(
+            drift_detected=False,
+            violated_constraints=[],
+            explanation="Clean mock",
+        )
+
+    monkeypatch.setattr(llm, "_call_gemini", mock_call_gemini)
+    monkeypatch.setattr(llm, "_call_ollama", mock_call_ollama)
+
+    from antigravity_pm.models import DriftReport
+
+    # Call with Gemini default
+    llm.generate_structured(None, "test", "prompt", DriftReport)
+    assert captured_calls[-1] == ("gemini", None, "fast")
+
+    # Call with Gemini explicit model
+    llm.generate_structured(None, "test", "prompt", DriftReport, model="gemini-3.8-flash")
+    assert captured_calls[-1] == ("gemini", "gemini-3.8-flash", "fast")
+
+    # Call with Ollama provider & model
+    llm.generate_structured(None, "test", "prompt", DriftReport, provider="ollama", model="qwen2.5-coder:32b")
+    assert captured_calls[-1] == ("ollama", "qwen2.5-coder:32b", "fast")
+

@@ -2,7 +2,7 @@ import os
 import json
 import re
 import urllib.request
-from typing import Type, TypeVar
+from typing import Type, TypeVar, Optional
 import typer
 from pydantic import BaseModel
 from rich.console import Console
@@ -30,20 +30,30 @@ def generate_structured(
     prompt: str,
     schema: Type[T],
     complexity: str = "fast",
+    model: Optional[str] = None,
+    provider: Optional[str] = None,
 ) -> T:
-    provider = os.environ.get("ANTIGRAVITY_PROVIDER", "gemini").lower().strip()
-    if provider == "ollama":
-        return _call_ollama(prompt, schema, complexity)
-    return _call_gemini(conn, command_name, prompt, schema, complexity)
+    active_provider = (provider or os.environ.get("ANTIGRAVITY_PROVIDER", "gemini")).lower().strip()
+    if active_provider == "ollama":
+        return _call_ollama(prompt, schema, complexity, model=model)
+    return _call_gemini(conn, command_name, prompt, schema, complexity, model=model)
 
 
-def _call_gemini(conn, command_name: str, prompt: str, schema: Type[T], complexity: str) -> T:
+def _call_gemini(
+    conn,
+    command_name: str,
+    prompt: str,
+    schema: Type[T],
+    complexity: str,
+    model: Optional[str] = None,
+) -> T:
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         console.print("[bold red]Error:[/bold red] GEMINI_API_KEY missing. Set it or export ANTIGRAVITY_PROVIDER=ollama.")
         raise typer.Exit(1)
 
-    model_name = "gemini-2.5-pro" if complexity == "pro" else "gemini-2.5-flash"
+    default_model = "gemini-2.5-pro" if complexity == "pro" else "gemini-2.5-flash"
+    model_name = model or os.environ.get("GEMINI_MODEL") or default_model
     client = genai.Client(api_key=api_key)
     with console.status(f"[cyan]UniGov: Generating {command_name} using {model_name}...[/cyan]", spinner="dots"):
         resp = client.models.generate_content(
@@ -60,10 +70,15 @@ def _call_gemini(conn, command_name: str, prompt: str, schema: Type[T], complexi
     return schema.model_validate_json(cleaned)
 
 
-def _call_ollama(prompt: str, schema: Type[T], complexity: str) -> T:
+def _call_ollama(
+    prompt: str,
+    schema: Type[T],
+    complexity: str,
+    model: Optional[str] = None,
+) -> T:
     base_url = os.environ.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
     default_model = "qwen2.5-coder:14b" if complexity == "pro" else "qwen2.5-coder:7b"
-    model_name = os.environ.get("OLLAMA_MODEL", default_model)
+    model_name = model or os.environ.get("OLLAMA_MODEL") or default_model
 
     payload = {
         "model": model_name,

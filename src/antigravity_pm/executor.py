@@ -1,8 +1,10 @@
 import re
+import ast
 import json
 import time
 import subprocess
 from pathlib import Path
+from typing import Optional
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -167,6 +169,135 @@ def pick_next_ready_task() -> None:
     console.print(Panel(bundle, title="Zero-Noise Context Bundle (Status -> IN_PROGRESS)", border_style="cyan"))
 
 
+def _check_balanced_brackets(file_path: Path, code: str) -> None:
+    stack = []
+    pairs = {")": "(", "}": "{", "]": "["}
+    opening = set(pairs.values())
+    closing = set(pairs.keys())
+
+    in_single_str = False
+    in_double_str = False
+    in_backtick = False
+    in_line_comment = False
+    in_block_comment = False
+
+    i = 0
+    n = len(code)
+    line = 1
+
+    while i < n:
+        c = code[i]
+        if c == "\n":
+            line += 1
+            in_line_comment = False
+            i += 1
+            continue
+
+        if in_line_comment:
+            i += 1
+            continue
+
+        if in_block_comment:
+            if c == "*" and i + 1 < n and code[i + 1] == "/":
+                in_block_comment = False
+                i += 2
+                continue
+            i += 1
+            continue
+
+        if in_single_str:
+            if c == "\\":
+                i += 2
+                continue
+            if c == "'":
+                in_single_str = False
+            i += 1
+            continue
+
+        if in_double_str:
+            if c == "\\":
+                i += 2
+                continue
+            if c == '"':
+                in_double_str = False
+            i += 1
+            continue
+
+        if in_backtick:
+            if c == "\\":
+                i += 2
+                continue
+            if c == "`":
+                in_backtick = False
+            i += 1
+            continue
+
+        # Comments
+        if c == "/" and i + 1 < n:
+            next_c = code[i + 1]
+            if next_c == "/":
+                in_line_comment = True
+                i += 2
+                continue
+            elif next_c == "*":
+                in_block_comment = True
+                i += 2
+                continue
+
+        # Strings
+        if c == '"':
+            in_double_str = True
+            i += 1
+            continue
+        elif c == "'":
+            in_single_str = True
+            i += 1
+            continue
+        elif c == "`":
+            in_backtick = True
+            i += 1
+            continue
+
+        # Brackets
+        if c in opening:
+            stack.append((c, line))
+        elif c in closing:
+            expected = pairs[c]
+            if not stack:
+                raise ValueError(f"Unmatched closing '{c}' at line {line} in '{file_path}'")
+            last_op, op_line = stack.pop()
+            if last_op != expected:
+                raise ValueError(
+                    f"Mismatched bracket in '{file_path}': expected closing for '{last_op}' (opened at line {op_line}), got '{c}' at line {line}"
+                )
+
+        i += 1
+
+    if stack:
+        unclosed, op_line = stack[-1]
+        raise ValueError(f"Unclosed bracket '{unclosed}' opened at line {op_line} in '{file_path}'")
+
+
+def validate_code_syntax(file_path: Path, code: str) -> None:
+    """Pre-validates modified code syntax before saving to disk to prevent corrupting files."""
+    suffix = file_path.suffix.lower()
+
+    if suffix == ".py":
+        try:
+            ast.parse(code, filename=str(file_path))
+        except SyntaxError as e:
+            raise ValueError(f"AST Syntax Validation Error in '{file_path}': Line {e.lineno}: {e.msg}") from e
+
+    elif suffix == ".json":
+        try:
+            json.loads(code)
+        except Exception as e:
+            raise ValueError(f"JSON Syntax Validation Error in '{file_path}': {e}") from e
+
+    elif suffix in {".kt", ".java", ".ts", ".tsx", ".js", ".rs", ".go", ".c", ".cpp", ".h"}:
+        _check_balanced_brackets(file_path, code)
+
+
 def _apply_surgical_patches(patches) -> None:
     staged_writes: dict[Path, str] = {}
 
@@ -215,6 +346,10 @@ def _apply_surgical_patches(patches) -> None:
 
         staged_writes[p] = content
 
+    # Phase 2 AST Pre-validation: Verify syntax for ALL files before touching disk
+    for path_obj, final_text in staged_writes.items():
+        validate_code_syntax(path_obj, final_text)
+
     for path_obj, final_text in staged_writes.items():
         path_obj.parent.mkdir(parents=True, exist_ok=True)
         path_obj.write_text(final_text, encoding="utf-8")
@@ -253,7 +388,12 @@ def _preview_and_apply_plan(conn, task_id: str, plan: AgentExecutionPlan) -> boo
     return True
 
 
-def execute_task_with_agent(task_id: str, error_feedback: str = "") -> bool:
+def execute_task_with_agent(
+    task_id: str,
+    error_feedback: str = "",
+    model: Optional[str] = None,
+    provider: Optional[str] = None,
+) -> bool:
     conn = get_db()
     task = conn.execute("SELECT * FROM tasks WHERE task_id = ?", (task_id,)).fetchone()
     vision = conn.execute("SELECT * FROM project_vision WHERE id = 1").fetchone()
@@ -286,11 +426,25 @@ def execute_task_with_agent(task_id: str, error_feedback: str = "") -> bool:
     """
 
     console.print(f"[cyan]Generating surgical patches for {task_id}...[/cyan]")
-    plan = generate_structured(conn, "execute", prompt, AgentExecutionPlan, complexity="pro")
+    plan = generate_structured(
+        conn,
+        "execute",
+        prompt,
+        AgentExecutionPlan,
+        complexity="pro",
+        model=model,
+        provider=provider,
+    )
     return _preview_and_apply_plan(conn, task_id, plan)
 
 
-def verify_and_unlock(task_id: str, auto_fix: bool = False, max_retries: int = 2) -> None:
+def verify_and_unlock(
+    task_id: str,
+    auto_fix: bool = False,
+    max_retries: int = 2,
+    model: Optional[str] = None,
+    provider: Optional[str] = None,
+) -> None:
     conn = get_db()
     task = conn.execute("SELECT * FROM tasks WHERE task_id = ?", (task_id,)).fetchone()
     if not task:
@@ -304,7 +458,7 @@ def verify_and_unlock(task_id: str, auto_fix: bool = False, max_retries: int = 2
             err_msg = f"Missing target files: {missing}"
             console.print(f"[bold red]Gate 1 Failed:[/bold red] {err_msg}")
             if auto_fix and attempt < max_retries:
-                if execute_task_with_agent(task_id, error_feedback=err_msg):
+                if execute_task_with_agent(task_id, error_feedback=err_msg, model=model, provider=provider):
                     continue
             conn.execute("UPDATE tasks SET status = 'FAILED' WHERE task_id = ?", (task_id,))
             conn.commit()
@@ -324,7 +478,7 @@ def verify_and_unlock(task_id: str, auto_fix: bool = False, max_retries: int = 2
                     )
                 if auto_fix and attempt < max_retries:
                     console.print(f"[yellow]Triggering Self-Healing Fix ({attempt + 1}/{max_retries})...[/yellow]")
-                    if execute_task_with_agent(task_id, error_feedback=err_out):
+                    if execute_task_with_agent(task_id, error_feedback=err_out, model=model, provider=provider):
                         continue
                 conn.execute("UPDATE tasks SET status = 'FAILED' WHERE task_id = ?", (task_id,))
                 conn.commit()
