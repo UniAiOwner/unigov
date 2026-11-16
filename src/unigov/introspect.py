@@ -10,11 +10,10 @@ from rich.table import Table
 
 from .db import get_db, AG_DIR, DB_PATH
 from .llm import generate_structured
+from .constants import CODE_EXTENSIONS, DEFAULT_IGNORE_DIRS, normalize_posix_path, is_code_file
+from .baseline import load_unigovernor_ignores, should_ignore_path
 
 console = Console()
-
-CODE_EXTENSIONS = {".py", ".kt", ".java", ".ts", ".tsx", ".js", ".rs", ".go"}
-IGNORE_DIRS = {".git", ".antigravity", ".venv", "venv", "node_modules", "build", ".gradle", "__pycache__", "tests"}
 
 
 class UpgradeRecommendation(BaseModel):
@@ -64,27 +63,37 @@ def analyze_target_project(project_root: Path = Path(".")) -> dict:
     project_name = vision_row["project_name"] if vision_row else project_root.resolve().name
     core_objective = vision_row["core_objective"] if vision_row else "Unknown"
 
+    ignore_patterns = load_unigovernor_ignores(project_root)
+
+    physical_code_files: set[str] = set()
     total_code_files = 0
     main_loc = 0
     test_loc = 0
     ext_counts: dict[str, int] = {}
-    package_counts: dict[str, int] = {}
 
     for p in project_root.rglob("*"):
-        if not p.is_file() or any(part in IGNORE_DIRS for part in p.parts):
+        if not p.is_file() or not is_code_file(p):
             continue
-        if p.suffix in CODE_EXTENSIONS:
-            total_code_files += 1
-            ext_counts[p.suffix] = ext_counts.get(p.suffix, 0) + 1
-            is_test = "test" in p.parts or "androidTest" in p.parts
-            try:
-                line_count = sum(1 for _ in p.open("r", encoding="utf-8", errors="ignore"))
-                if is_test:
-                    test_loc += line_count
-                else:
-                    main_loc += line_count
-            except Exception:
-                pass
+        rel_path = p.relative_to(project_root)
+        if should_ignore_path(rel_path, ignore_patterns):
+            continue
+
+        norm_p = normalize_posix_path(rel_path)
+        if not norm_p:
+            continue
+
+        physical_code_files.add(norm_p)
+        total_code_files += 1
+        ext_counts[p.suffix] = ext_counts.get(p.suffix, 0) + 1
+        is_test = "test" in p.parts or "androidTest" in p.parts
+        try:
+            line_count = sum(1 for _ in p.open("r", encoding="utf-8", errors="ignore"))
+            if is_test:
+                test_loc += line_count
+            else:
+                main_loc += line_count
+        except Exception:
+            pass
 
     tasks = conn.execute("SELECT * FROM tasks").fetchall()
     tracked_files = set()
@@ -92,13 +101,19 @@ def analyze_target_project(project_root: Path = Path(".")) -> dict:
     in_progress_tasks = 0
     for t in tasks:
         for f in json.loads(t["target_files_json"] or "[]"):
-            tracked_files.add(Path(f).as_posix())
+            norm_f = normalize_posix_path(f)
+            if norm_f:
+                tracked_files.add(norm_f)
         if t["status"] == "COMPLETED":
             completed_tasks += 1
         elif t["status"] == "IN_PROGRESS":
             in_progress_tasks += 1
 
-    dag_coverage_pct = round((len(tracked_files) / max(total_code_files, 1)) * 100, 2)
+    covered_files = physical_code_files.intersection(tracked_files)
+    orphan_files = physical_code_files - tracked_files
+    ghost_files = tracked_files - physical_code_files
+
+    dag_coverage_pct = round((len(covered_files) / max(len(physical_code_files), 1)) * 100, 2) if physical_code_files else 100.0
 
     return {
         "project_name": project_name,
@@ -112,6 +127,10 @@ def analyze_target_project(project_root: Path = Path(".")) -> dict:
         "dag_tasks_completed": completed_tasks,
         "dag_tasks_in_progress": in_progress_tasks,
         "dag_tracked_files": len(tracked_files),
+        "physical_code_files": physical_code_files,
+        "covered_files": covered_files,
+        "orphan_files": orphan_files,
+        "ghost_files": ghost_files,
         "dag_coverage_pct": dag_coverage_pct,
     }
 
@@ -165,14 +184,18 @@ def _render_audit_report(diag: MetacognitiveDiagnosis, proj: dict, self_m: dict,
     from datetime import datetime
     from .db import resolve_gov_dir
 
+    orphan_cnt = len(proj.get("orphan_files", []))
+    covered_cnt = len(proj.get("covered_files", set(range(proj["dag_tracked_files"]))))
+    dag_coverage_pct = min(100.0, max(0.0, proj["dag_coverage_pct"]))
+
     console.print(Panel(
         f"[bold cyan]Project Audited:[/bold cyan] {proj['project_name']} | "
         f"[bold]Total Codebase:[/bold] {proj['total_code_files']} files ({proj['total_loc']:,} LOC) | "
         f"[bold]Test Suites:[/bold] {proj['test_loc']:,} LOC\n"
         f"[bold green]Maturity Rating:[/bold green] [bold yellow]{diag.project_maturity_rating}[/bold yellow] "
         f"(Score: [bold green]{diag.project_maturity_score}/100[/bold green])\n"
-        f"[bold red]Governance DAG Coverage:[/bold red] {proj['dag_coverage_pct']}% "
-        f"({proj['dag_tracked_files']} tracked vs {proj['total_code_files'] - proj['dag_tracked_files']} orphan files)",
+        f"[bold red]Governance DAG Coverage:[/bold red] {dag_coverage_pct}% "
+        f"({covered_cnt} covered vs {orphan_cnt} orphan files)",
         title="🧠 UniGov Metacognitive Self-Audit & Codebase Maturity",
         border_style="cyan"
     ))

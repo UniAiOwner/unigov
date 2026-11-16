@@ -162,11 +162,13 @@ def reconcile(
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model name"),
     provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Override provider (gemini|ollama)"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Auto-apply reconciled statuses without confirmation"),
+    purge_ghosts: bool = typer.Option(True, "--purge-ghosts/--no-purge-ghosts", help="Auto-purge non-existent/deleted ghost files from DAG mappings"),
+    reconcile_orphans: bool = typer.Option(True, "--reconcile-orphans/--no-reconcile-orphans", help="Auto-bind unmapped workspace files into baseline registry"),
 ) -> None:
     """Audit codebase reality against WBS tasks and reconcile completed vs missing work."""
     from .reconciler import reconcile_project
     conn = get_db()
-    reconcile_project(conn, root_dir=target, model=model, provider=provider, auto_apply=yes)
+    reconcile_project(conn, root_dir=target, model=model, provider=provider, auto_apply=yes, purge_ghosts=purge_ghosts, reconcile_orphans=reconcile_orphans)
 
 
 @app.command()
@@ -175,11 +177,13 @@ def converge(
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model name"),
     provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Override provider (gemini|ollama)"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Auto-apply reconciled statuses without confirmation"),
+    purge_ghosts: bool = typer.Option(True, "--purge-ghosts/--no-purge-ghosts", help="Auto-purge non-existent/deleted ghost files from DAG mappings"),
+    reconcile_orphans: bool = typer.Option(True, "--reconcile-orphans/--no-reconcile-orphans", help="Auto-bind unmapped workspace files into baseline registry"),
 ) -> None:
     """Alias for 'unigov reconcile'."""
     from .reconciler import reconcile_project
     conn = get_db()
-    reconcile_project(conn, root_dir=target, model=model, provider=provider, auto_apply=yes)
+    reconcile_project(conn, root_dir=target, model=model, provider=provider, auto_apply=yes, purge_ghosts=purge_ghosts, reconcile_orphans=reconcile_orphans)
 
 
 @app.command(name="scaffold-docs")

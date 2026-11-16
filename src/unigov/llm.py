@@ -67,20 +67,44 @@ def _call_gemini(
         console.print("[bold red]Error:[/bold red] GEMINI_API_KEY missing. Set it or export ANTIGRAVITY_PROVIDER=ollama.")
         raise typer.Exit(1)
 
-    default_model = "gemini-3.5-flash-lite" if complexity == "pro" else "gemini-3.1-flash-lite"
-    model_name = model or os.environ.get("GEMINI_MODEL") or default_model
+    default_model = "gemini-2.5-flash"
+    primary_model = model or os.environ.get("GEMINI_MODEL") or default_model
     client = genai.Client(api_key=api_key)
-    with console.status(f"[cyan]UniGov: Generating {command_name} using {model_name}...[/cyan]", spinner="dots"):
-        resp = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=schema,
-                temperature=0.1,
-            ),
-        )
-    log_gemini_usage(conn, command_name, model_name, resp)
+
+    candidate_models = [primary_model, "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash"]
+    seen_m = set()
+    models_to_try = []
+    for m in candidate_models:
+        if m and m not in seen_m:
+            models_to_try.append(m)
+            seen_m.add(m)
+
+    resp = None
+    last_err = None
+    selected_model = primary_model
+
+    for m_cand in models_to_try:
+        try:
+            with console.status(f"[cyan]UniGov: Generating {command_name} using {m_cand}...[/cyan]", spinner="dots"):
+                resp = client.models.generate_content(
+                    model=m_cand,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=schema,
+                        temperature=0.1,
+                    ),
+                )
+            selected_model = m_cand
+            break
+        except Exception as e:
+            last_err = e
+            continue
+
+    if resp is None:
+        raise last_err
+
+    log_gemini_usage(conn, command_name, selected_model, resp)
     cleaned = _clean_json_str(resp.text)
     return schema.model_validate_json(cleaned)
 

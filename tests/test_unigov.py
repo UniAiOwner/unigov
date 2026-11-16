@@ -531,5 +531,75 @@ def test_unigovernor_ignores(isolated_workspace):
     assert should_ignore_path(p3.relative_to(ws), patterns) is False
 
 
+def test_path_normalization_and_hash(isolated_workspace):
+    from unigov.constants import normalize_posix_path, compute_file_hash, is_code_file
+    ws, _ = isolated_workspace
+
+    assert normalize_posix_path("./app/src/main/App.kt") == "app/src/main/App.kt"
+    assert normalize_posix_path("app\\src\\main\\App.kt") == "app/src/main/App.kt"
+    assert normalize_posix_path("app/src/../src/main/App.kt") == "app/src/main/App.kt"
+    assert normalize_posix_path(".") == ""
+    assert normalize_posix_path("./") == ""
+
+    test_file = ws / "test.kt"
+    test_file.write_text("class TestClass", encoding="utf-8")
+    assert is_code_file(test_file) is True
+
+    f_hash = compute_file_hash(test_file)
+    assert len(f_hash) == 8
+    assert f_hash != "00000000"
+
+
+def test_purge_ghost_files_and_reconcile_orphans(isolated_workspace):
+    from unigov.reconciler import purge_ghost_files, reconcile_orphan_files
+    from unigov.baseline import scan_and_lock_baseline
+    import json
+    import sqlite3
+
+    ws, _ = isolated_workspace
+
+    # Create real files
+    real_file = ws / "app" / "src" / "main" / "Real.kt"
+    real_file.parent.mkdir(parents=True, exist_ok=True)
+    real_file.write_text("class Real", encoding="utf-8")
+
+    conn = sqlite3.connect(".antigravity/state.db")
+    conn.row_factory = sqlite3.Row
+
+    # Baseline scan
+    scan_and_lock_baseline(conn, project_root=ws)
+
+    # Insert a task with a real file, duplicate path, and a ghost (non-existent) file
+    with conn:
+        conn.execute("""
+            INSERT INTO tasks (task_id, level, title, description, target_files_json, status)
+            VALUES ('T-TEST', 'TASK', 'Test Task', 'Desc', ?, 'READY')
+        """, (json.dumps(["./app/src/main/Real.kt", "app/src/main/Real.kt", "app/src/main/Ghost.kt"]),))
+
+    # Test purge_ghost_files
+    purged = purge_ghost_files(conn, root_dir=ws)
+    assert len(purged) == 1
+    assert "Ghost.kt" in purged[0]
+
+    # Check updated task in DB: duplicate collapsed and ghost removed
+    task_row = conn.execute("SELECT target_files_json FROM tasks WHERE task_id = 'T-TEST'").fetchone()
+    targets = json.loads(task_row["target_files_json"])
+    assert targets == ["app/src/main/Real.kt"]
+
+    # Now create a new physical orphan file
+    orphan = ws / "app" / "src" / "main" / "domain" / "OrphanModel.kt"
+    orphan.parent.mkdir(parents=True, exist_ok=True)
+    orphan.write_text("data class OrphanModel(val x: Int)", encoding="utf-8")
+
+    # Test reconcile_orphan_files
+    bound = reconcile_orphan_files(conn, root_dir=ws)
+    assert len(bound) >= 1
+    assert any("OrphanModel.kt" in b for b in bound)
+
+    # Verify OrphanModel is now tracked under M0-BASE-DOM
+    dom_row = conn.execute("SELECT target_files_json FROM tasks WHERE task_id = 'M0-BASE-DOM'").fetchone()
+    assert "OrphanModel.kt" in dom_row["target_files_json"]
+
+
 
 

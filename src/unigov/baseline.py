@@ -7,13 +7,9 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-console = Console()
+from .constants import CODE_EXTENSIONS, DEFAULT_IGNORE_DIRS, normalize_posix_path
 
-CODE_EXTENSIONS = {".kt", ".java", ".py", ".ts", ".tsx", ".js", ".rs", ".go", ".cpp", ".c", ".h"}
-DEFAULT_IGNORE_DIRS = {
-    ".git", ".unigov", ".antigravity", ".venv", "venv", "node_modules",
-    "build", ".gradle", "__pycache__", "dist", ".idea", ".pytest_cache"
-}
+console = Console()
 
 
 def load_unigovernor_ignores(project_root: Path) -> List[str]:
@@ -156,7 +152,7 @@ def scan_and_lock_baseline(conn: sqlite3.Connection, project_root: Path = Path("
         if should_ignore_path(rel_path, ignore_patterns):
             continue
 
-        rel_posix = rel_path.as_posix()
+        rel_posix = normalize_posix_path(rel_path)
         sub_id, sub_title, layer = classify_source_file(rel_posix)
 
         if sub_id not in subsystems:

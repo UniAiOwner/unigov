@@ -9,6 +9,7 @@ from rich.panel import Panel
 from .db import get_db
 from .llm import generate_structured
 from .models import MultiDocAnalysis
+from .constants import normalize_posix_path
 
 console = Console()
 
@@ -173,10 +174,11 @@ def ingest_path(
                 layer = "LAYER_1_DOMAIN"
 
             status = "READY" if (t.level == "TASK" and not t.depends_on) else "PENDING"
+            norm_targets = sorted(list({normalize_posix_path(f) for f in t.target_files if normalize_posix_path(f)}))
             conn.execute("""
                 INSERT OR REPLACE INTO tasks (task_id, parent_id, level, layer, title, description, target_files_json, verify_cmd, status)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (t.task_id, t.parent_id, t.level, layer, t.title, t.description, json.dumps(t.target_files), t.verify_cmd, status))
+            """, (t.task_id, t.parent_id, t.level, layer, t.title, t.description, json.dumps(norm_targets), t.verify_cmd, status))
 
         for t in analysis.tasks:
             for dep in t.depends_on:
