@@ -462,5 +462,23 @@ def dashboard_cmd() -> None:
     launch_dashboard()
 
 
+@app.command(name="self-audit")
+def self_audit_cmd(
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Path to project root to audit"),
+) -> None:
+    """Metacognitive Self-Audit: Inspect UniGov self-capabilities, analyze project maturity, and diagnose upgrade bottlenecks using Gemini."""
+    from .introspect import run_self_audit
+    run_self_audit(project_root=dir)
+
+
+@app.command(name="introspect")
+def introspect_cmd(
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Path to project root to audit"),
+) -> None:
+    """Alias for 'unigov self-audit'."""
+    from .introspect import run_self_audit
+    run_self_audit(project_root=dir)
+
+
 if __name__ == "__main__":
     app()

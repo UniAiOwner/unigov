@@ -434,4 +434,17 @@ def test_topological_phase_locks_rail(isolated_workspace):
     assert t_ui_after["status"] == "READY"
 
 
+def test_introspect_self_and_target_analysis(isolated_workspace):
+    from antigravity_pm.introspect import introspect_unigov_self, analyze_target_project
+    ws, _ = isolated_workspace
+
+    self_meta = introspect_unigov_self()
+    assert self_meta["module_count"] >= 10
+    assert "introspect.py" in self_meta["modules"]
+
+    target_meta = analyze_target_project(ws)
+    assert target_meta["project_name"] == "UniRetail"
+    assert "dag_coverage_pct" in target_meta
+
+
 

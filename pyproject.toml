@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "antigravity-pm"
-version = "0.5.0"
+version = "0.5.1"
 description = "Deterministic State Machine + AI Project Manager CLI for Antigravity"
 requires-python = ">=3.11"
 dependencies = [
