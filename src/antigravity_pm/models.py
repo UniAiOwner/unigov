@@ -6,6 +6,7 @@ class ExtractedTask(BaseModel):
     task_id: str = Field(..., description="Unique hierarchical ID like M1-DB-01")
     parent_id: Optional[str] = Field(None, description="Parent MILESTONE or MODULE task_id")
     level: str = Field(..., description="One of: MILESTONE, MODULE, TASK")
+    layer: str = Field(default="LAYER_1_DOMAIN", description="One of: LAYER_1_DOMAIN, LAYER_2_DATA, LAYER_3_SURFACES, LAYER_4_SECURITY, LAYER_5_INTELLIGENCE")
     title: str
     description: str
     depends_on: List[str] = Field(default_factory=list)
@@ -67,3 +68,32 @@ class ReconciliationSummary(BaseModel):
     partial_tasks: int
     missing_tasks: int
     results: List[TaskReconciliationResult]
+
+
+class ArchitecturalInvariant(BaseModel):
+    invariant_id: str = Field(..., description="e.g. INV-FIN-001")
+    layer: str = Field(..., description="e.g. LAYER_1_DOMAIN")
+    title: str
+    rule_type: str = Field(..., description="FORBIDDEN_TOKENS, REQUIRED_COLUMNS, MANDATORY_UI_STATES, FSM_STATES, LATENCY_BUDGET")
+    file_patterns: List[str] = Field(default_factory=list)
+    params: dict = Field(default_factory=dict)
+    enforcement: str = Field("BLOCK_BUILD", description="BLOCK_BUILD or WARN")
+    source_doc: str = Field("", description="Document file path where invariant was defined")
+
+
+class DimensionCoverage(BaseModel):
+    dimension_index: int
+    dimension_name: str
+    layer: str
+    present: bool
+    file_path: Optional[str] = None
+    invariants_count: int = 0
+
+
+class SpecVerificationReport(BaseModel):
+    total_dimensions: int = 15
+    covered_dimensions: int
+    readiness_score: float
+    dimensions: List[DimensionCoverage]
+    invariants_extracted: int
+    conflicts: List[DocConflict] = Field(default_factory=list)

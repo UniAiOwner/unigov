@@ -306,6 +306,8 @@ def reconcile_project(
                     (r.task_id,),
                 )
         cascade_task_completions(conn)
+        from .invariants import apply_topological_phase_locks
+        apply_topological_phase_locks(conn)
 
     console.print("[bold green]Success:[/bold green] .antigravity/state.db synchronized with codebase reality.")
     return ReconciliationSummary(

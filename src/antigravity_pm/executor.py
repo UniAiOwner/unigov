@@ -149,6 +149,8 @@ def rollback_task(task_id: str) -> None:
 
 def pick_next_ready_task() -> None:
     conn = get_db()
+    from .invariants import apply_topological_phase_locks
+    apply_topological_phase_locks(conn)
     vision = conn.execute("SELECT * FROM project_vision WHERE id = 1").fetchone()
     task = conn.execute("SELECT * FROM tasks WHERE level = 'TASK' AND status = 'READY' LIMIT 1").fetchone()
 

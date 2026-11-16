@@ -157,11 +157,26 @@ def ingest_path(
             existing = conn.execute("SELECT status FROM tasks WHERE task_id = ?", (t.task_id,)).fetchone()
             if existing and existing["status"] == "COMPLETED":
                 continue
+
+            # Auto-assign layer if not explicitly determined
+            layer = getattr(t, "layer", "LAYER_1_DOMAIN")
+            text_desc = f"{t.title} {t.description} {' '.join(t.target_files)}".lower()
+            if any(k in text_desc for k in ["ui", "screen", "modal", "view", "scanner", "printer", "camera", "compose", "css", "theme"]):
+                layer = "LAYER_3_SURFACES"
+            elif any(k in text_desc for k in ["dao", "room", "table", "schema", "db", "database", "migration", "sync", "idempotenc"]):
+                layer = "LAYER_2_DATA"
+            elif any(k in text_desc for k in ["keystore", "secret", "rbac", "auth", "security", "encryption", "sla", "perf"]):
+                layer = "LAYER_4_SECURITY"
+            elif any(k in text_desc for k in ["slm", "ai", "cortex", "merkle", "disaster", "swap", "chaos", "self-heal"]):
+                layer = "LAYER_5_INTELLIGENCE"
+            else:
+                layer = "LAYER_1_DOMAIN"
+
             status = "READY" if (t.level == "TASK" and not t.depends_on) else "PENDING"
             conn.execute("""
-                INSERT OR REPLACE INTO tasks (task_id, parent_id, level, title, description, target_files_json, verify_cmd, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (t.task_id, t.parent_id, t.level, t.title, t.description, json.dumps(t.target_files), t.verify_cmd, status))
+                INSERT OR REPLACE INTO tasks (task_id, parent_id, level, layer, title, description, target_files_json, verify_cmd, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (t.task_id, t.parent_id, t.level, layer, t.title, t.description, json.dumps(t.target_files), t.verify_cmd, status))
 
         for t in analysis.tasks:
             for dep in t.depends_on:
@@ -172,6 +187,21 @@ def ingest_path(
                 "INSERT OR REPLACE INTO ingested_docs (file_path, file_hash, last_ingested_at) VALUES (?, ?, CURRENT_TIMESTAMP)",
                 (f.as_posix(), f_hash),
             )
+
+        # 1. Parse and compile machine-executable invariants
+        from .invariants import extract_invariants_from_text, sync_invariants_to_db, apply_topological_phase_locks
+        all_invs = []
+        for f, _ in changed_files:
+            text = f.read_text(encoding="utf-8", errors="ignore")
+            all_invs.extend(extract_invariants_from_text(text, source_doc=f.as_posix()))
+        if all_invs:
+            sync_invariants_to_db(conn, all_invs)
+            console.print(f"[cyan]Compiled {len(all_invs)} active machine-executable invariant(s) into database.[/cyan]")
+
+        # 2. Enforce Constitutional Layer Gating
+        blocked, unlocked = apply_topological_phase_locks(conn)
+        if blocked > 0:
+            console.print(f"[yellow]Phase Lock Active:[/yellow] {blocked} Surface task(s) held in BLOCKED until Domain/Data layers are completed.")
 
     console.print("[bold green]Success:[/bold green] Project Knowledge & DAG synchronized.")
 

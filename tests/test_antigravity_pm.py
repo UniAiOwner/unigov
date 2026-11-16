@@ -379,3 +379,59 @@ def test_reconcile_find_candidates_and_cascade(isolated_workspace):
     assert m1["status"] == "COMPLETED"
 
 
+def test_scaffolder_and_spec_verification(isolated_workspace):
+    from antigravity_pm.scaffolder import scaffold_documentation_suite, DIMENSION_METADATA
+    from antigravity_pm.invariants import verify_project_spec
+    from antigravity_pm.db import get_db
+    from pathlib import Path
+
+    docs_dir = Path("docs")
+    created = scaffold_documentation_suite(docs_dir, project_name="UniRetail POS", overwrite=True)
+    assert len(created) == 15
+    assert len(DIMENSION_METADATA) == 15
+
+    # Check presence of invariant blocks in 01 and 02
+    doc_01 = (docs_dir / "01_VISION_AND_CONSTRAINTS.md").read_text()
+    assert "<!-- UNIGOV_INVARIANT_START -->" in doc_01
+    assert "INV-LAW-000" in doc_01
+
+    conn = get_db()
+    report = verify_project_spec(docs_dir, conn)
+    assert report.total_dimensions == 15
+    assert report.covered_dimensions == 15
+    assert report.readiness_score == 100.0
+    assert report.invariants_extracted >= 5
+
+
+def test_topological_phase_locks_rail(isolated_workspace):
+    from antigravity_pm.invariants import apply_topological_phase_locks
+    from antigravity_pm.db import get_db
+
+    conn = get_db()
+
+    with conn:
+        # Layer 1 Domain Task (Uncompleted)
+        conn.execute("INSERT INTO tasks (task_id, parent_id, level, layer, title, description, status) VALUES ('T-DOM-01', NULL, 'TASK', 'LAYER_1_DOMAIN', 'Order FSM', 'Desc', 'IN_PROGRESS')")
+        # Layer 2 Data Task (Completed)
+        conn.execute("INSERT INTO tasks (task_id, parent_id, level, layer, title, description, status) VALUES ('T-DAT-01', NULL, 'TASK', 'LAYER_2_DATA', 'Room Schema', 'Desc', 'COMPLETED')")
+        # Layer 3 UI Task (Should be BLOCKED because T-DOM-01 is IN_PROGRESS)
+        conn.execute("INSERT INTO tasks (task_id, parent_id, level, layer, title, description, status) VALUES ('T-UI-01', NULL, 'TASK', 'LAYER_3_SURFACES', 'Cart Screen', 'Desc', 'READY')")
+
+    blocked, unlocked = apply_topological_phase_locks(conn)
+    assert blocked == 1
+
+    t_ui = conn.execute("SELECT status FROM tasks WHERE task_id = 'T-UI-01'").fetchone()
+    assert t_ui["status"] == "BLOCKED"
+
+    # Now complete the Layer 1 foundation task
+    with conn:
+        conn.execute("UPDATE tasks SET status = 'COMPLETED' WHERE task_id = 'T-DOM-01'")
+
+    blocked2, unlocked2 = apply_topological_phase_locks(conn)
+    assert unlocked2 == 1
+
+    t_ui_after = conn.execute("SELECT status FROM tasks WHERE task_id = 'T-UI-01'").fetchone()
+    assert t_ui_after["status"] == "READY"
+
+
+

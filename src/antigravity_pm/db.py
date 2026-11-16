@@ -97,5 +97,23 @@ def init_schema(conn: sqlite3.Connection) -> None:
         estimated_cost_usd REAL NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS invariants (
+        invariant_id TEXT PRIMARY KEY,
+        layer TEXT NOT NULL,
+        title TEXT NOT NULL,
+        rule_type TEXT NOT NULL,
+        file_patterns_json TEXT NOT NULL,
+        params_json TEXT NOT NULL,
+        enforcement TEXT NOT NULL CHECK(enforcement IN ('BLOCK_BUILD', 'WARN')),
+        source_doc TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
     """)
+
+    # Ensure tasks table has layer column
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(tasks)").fetchall()]
+    if "layer" not in cols:
+        conn.execute("ALTER TABLE tasks ADD COLUMN layer TEXT DEFAULT 'LAYER_1_DOMAIN'")
+
     conn.commit()

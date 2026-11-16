@@ -123,6 +123,52 @@ def converge(
     reconcile_project(conn, root_dir=target, model=model, provider=provider, auto_apply=yes)
 
 
+@app.command(name="scaffold-docs")
+def scaffold_docs(
+    target: Path = typer.Option(Path("docs"), "--dir", "-d", help="Target directory for 15-file architecture suite"),
+    project_name: Optional[str] = typer.Option(None, "--name", "-n", help="Project name"),
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files"),
+) -> None:
+    """Scaffold complete 15-file production architecture suite with machine-executable invariants."""
+    from .scaffolder import scaffold_documentation_suite
+    conn = get_db(require_init=False)
+    p_name = project_name
+    if not p_name and DB_PATH.exists():
+        vision = conn.execute("SELECT project_name FROM project_vision WHERE id = 1").fetchone()
+        if vision:
+            p_name = vision["project_name"]
+    p_name = p_name or "Enterprise Mobile OS"
+
+    created = scaffold_documentation_suite(target, project_name=p_name, overwrite=force)
+    console.print(Panel(
+        f"[bold green]Successfully scaffolded {len(created)} architectural specification file(s) in {target}/[/bold green]\n"
+        f"Project Name: [cyan]{p_name}[/cyan]\n"
+        f"Layers Covered: [magenta]Domain, Data/Sync, Surfaces/Hardware, Security/Ops, Edge AI & Resilience[/magenta]",
+        title="UniGov v0.5.0 Architecture Scaffolder",
+        border_style="green",
+    ))
+
+
+@app.command(name="scaffold")
+def scaffold_alias(
+    target: Path = typer.Option(Path("docs"), "--dir", "-d", help="Target directory for 15-file architecture suite"),
+    project_name: Optional[str] = typer.Option(None, "--name", "-n", help="Project name"),
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files"),
+) -> None:
+    """Alias for 'unigov scaffold-docs'."""
+    scaffold_docs(target=target, project_name=project_name, force=force)
+
+
+@app.command(name="verify-spec")
+def verify_spec(
+    docs_dir: Path = typer.Option(Path("docs"), "--dir", "-d", help="Path to documentation folder"),
+) -> None:
+    """Audit the 15-dimension architectural specification suite and compile machine invariants."""
+    from .invariants import verify_project_spec
+    conn = get_db()
+    verify_project_spec(docs_dir, conn)
+
+
 @app.command()
 def status(export: bool = typer.Option(False, "--export", help="Export dashboard to PROJECT_STATUS.md")) -> None:
     """View Vision Lock, DAG Execution Tree, and optionally export PROJECT_STATUS.md."""
@@ -152,7 +198,11 @@ def status(export: bool = typer.Option(False, "--export", help="Export dashboard
             "FAILED": "red",
             "BLOCKED": "magenta",
         }.get(t["status"], "white")
-        label = f"[{color}][{t['status']}][/{color}] [bold]{t['task_id']}[/bold] ({t['level']}): {t['title']}"
+        layer_badge = ""
+        if "layer" in t.keys() and t["layer"]:
+            layer_short = t["layer"].replace("LAYER_", "L").replace("_", " ")
+            layer_badge = f" [dim cyan][{layer_short}][/dim cyan]"
+        label = f"[{color}][{t['status']}][/{color}]{layer_badge} [bold]{t['task_id']}[/bold] ({t['level']}): {t['title']}"
         parent_node = nodes.get(t["parent_id"], tree)
         nodes[t["task_id"]] = parent_node.add(label)
 
