@@ -1,3 +1,4 @@
+import re
 import json
 import time
 import subprocess
@@ -11,6 +12,72 @@ from .llm import generate_structured
 from .models import AgentExecutionPlan
 
 console = Console()
+
+ERROR_SIGNALS = [
+    re.compile(r"\b(?:error|ERROR|Error)\b:?"),
+    re.compile(r"\b(?:fatal|FATAL|Fatal)\b:?"),
+    re.compile(r"\b(?:FAILED|FAIL)\b"),
+    re.compile(r"\bTraceback \(most recent call last\):"),
+    re.compile(r"\b(?:Exception|AssertionError|NullPointerException|TypeError|ValueError|KeyError|IndexError|AttributeError)\b"),
+    re.compile(r"^\s*E\s+.*", re.MULTILINE),
+    re.compile(r"FAILED\s+tests/"),
+    re.compile(r"\b[\w./\\-]+\.(?:py|kt|java|ts|tsx|rs|go|cpp|c|h):\d+(?::\d+)?"),
+    re.compile(r"\bBUILD FAILED\b"),
+]
+
+
+def extract_actionable_error_log(raw_output: str, max_chars: int = 2500) -> str:
+    """Intelligently scrapes compiler, test, and runtime failure logs to surface root causes
+
+    instead of blindly truncating the tail of stdout/stderr.
+    """
+    if not raw_output:
+        return ""
+
+    text = raw_output.strip()
+    if len(text) <= max_chars:
+        return text
+
+    lines = text.splitlines()
+    matching_indices: set[int] = set()
+
+    for idx, line in enumerate(lines):
+        for pattern in ERROR_SIGNALS:
+            if pattern.search(line):
+                matching_indices.add(idx)
+                break
+
+    if not matching_indices:
+        return text[-max_chars:]
+
+    extracted_indices: set[int] = set()
+    for idx in matching_indices:
+        start = max(0, idx - 3)
+        end = min(len(lines), idx + 6)
+        for i in range(start, end):
+            extracted_indices.add(i)
+
+    sorted_indices = sorted(extracted_indices)
+    blocks: list[list[str]] = []
+    current_block: list[str] = []
+    prev_idx = None
+
+    for i in sorted_indices:
+        if prev_idx is not None and i > prev_idx + 1:
+            if current_block:
+                blocks.append(current_block)
+                current_block = []
+        current_block.append(lines[i])
+        prev_idx = i
+    if current_block:
+        blocks.append(current_block)
+
+    formatted_blocks = ["\n".join(b) for b in blocks]
+    combined = "\n\n--- [Diagnostics Context] ---\n\n".join(formatted_blocks)
+
+    if len(combined) > max_chars:
+        return combined[:max_chars] + "\n...[truncated]"
+    return combined
 
 
 def create_git_checkpoint(conn, task_id: str) -> str:
@@ -247,12 +314,13 @@ def verify_and_unlock(task_id: str, auto_fix: bool = False, max_retries: int = 2
             console.print(f"[cyan]Running Gate 2 (Attempt {attempt + 1}):[/cyan] {task['verify_cmd']}")
             proc = subprocess.run(task["verify_cmd"], shell=True, capture_output=True, text=True)
             if proc.returncode != 0:
-                err_out = (proc.stderr or proc.stdout)[-1500:]
-                console.print(Panel(err_out, title="Gate 2 Failed: Build/Test Error", border_style="red"))
+                full_raw = ((proc.stderr or "") + "\n" + (proc.stdout or "")).strip()
+                err_out = extract_actionable_error_log(full_raw)
+                console.print(Panel(err_out, title="Gate 2 Failed: Actionable Diagnostics", border_style="red"))
                 with conn:
                     conn.execute(
                         "INSERT INTO audit_logs (task_id, check_type, passed, output_snippet) VALUES (?, 'BUILD_TEST', 0, ?)",
-                        (task_id, err_out),
+                        (task_id, err_out[:1000]),
                     )
                 if auto_fix and attempt < max_retries:
                     console.print(f"[yellow]Triggering Self-Healing Fix ({attempt + 1}/{max_retries})...[/yellow]")

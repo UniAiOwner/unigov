@@ -12,6 +12,40 @@ from .models import MultiDocAnalysis
 console = Console()
 
 
+def detect_dag_cycles(tasks: list) -> list[list[str]]:
+    """Detects circular dependency paths in WBS tasks.
+
+    Returns a list of cycle paths, e.g. [['T1', 'T2', 'T1']].
+    """
+    adj: dict[str, list[str]] = {t.task_id: list(t.depends_on) for t in tasks}
+    cycles: list[list[str]] = []
+    visited: dict[str, int] = {}  # 0: unvisited, 1: visiting (stack), 2: visited
+    path_stack: list[str] = []
+
+    def dfs(node: str):
+        visited[node] = 1
+        path_stack.append(node)
+
+        for dep in adj.get(node, []):
+            if visited.get(dep, 0) == 0:
+                dfs(dep)
+            elif visited.get(dep, 0) == 1:
+                # Cycle found
+                if dep in path_stack:
+                    cycle_start = path_stack.index(dep)
+                    cycle_path = path_stack[cycle_start:] + [dep]
+                    cycles.append(cycle_path)
+
+        path_stack.pop()
+        visited[node] = 2
+
+    for t in tasks:
+        if visited.get(t.task_id, 0) == 0:
+            dfs(t.task_id)
+
+    return cycles
+
+
 def ingest_path(target: Path) -> None:
     if not target.exists():
         console.print(f"[bold red]Error:[/bold red] Path not found: {target}")
@@ -62,6 +96,26 @@ def ingest_path(target: Path) -> None:
 
         if not typer.confirm("\nAccept recommended resolutions and continue?"):
             console.print("[yellow]Aborted. Update your docs manually and re-run ingest.[/yellow]")
+            raise typer.Exit(1)
+
+    cycles = detect_dag_cycles(analysis.tasks)
+    if cycles:
+        console.print(Panel("[bold red]DAG DEPENDENCY CYCLE DETECTED[/bold red]", border_style="red"))
+        for idx, c in enumerate(cycles, 1):
+            cycle_str = " -> ".join(c)
+            console.print(f"[bold yellow]{idx}. Cycle detected:[/bold yellow] [red]{cycle_str}[/red]")
+
+        console.print("\n[yellow]Circular dependencies will cause a permanent deadlock in the execution state machine.[/yellow]")
+        if typer.confirm("Automatically break circular dependency back-edges?", default=True):
+            for c in cycles:
+                if len(c) >= 2:
+                    from_task, to_task = c[-2], c[-1]
+                    for t in analysis.tasks:
+                        if t.task_id == from_task and to_task in t.depends_on:
+                            t.depends_on.remove(to_task)
+                            console.print(f"[green]Auto-Resolved:[/green] Removed circular back-edge: {from_task} -> {to_task}")
+        else:
+            console.print("[yellow]Aborted. Please resolve circular dependencies in documentation.[/yellow]")
             raise typer.Exit(1)
 
     console.print(Panel(

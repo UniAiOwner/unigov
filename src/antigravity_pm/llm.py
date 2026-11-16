@@ -45,15 +45,16 @@ def _call_gemini(conn, command_name: str, prompt: str, schema: Type[T], complexi
 
     model_name = "gemini-2.5-pro" if complexity == "pro" else "gemini-2.5-flash"
     client = genai.Client(api_key=api_key)
-    resp = client.models.generate_content(
-        model=model_name,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=schema,
-            temperature=0.1,
-        ),
-    )
+    with console.status(f"[cyan]UniGov: Generating {command_name} using {model_name}...[/cyan]", spinner="dots"):
+        resp = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=schema,
+                temperature=0.1,
+            ),
+        )
     log_gemini_usage(conn, command_name, model_name, resp)
     cleaned = _clean_json_str(resp.text)
     return schema.model_validate_json(cleaned)
@@ -64,7 +65,6 @@ def _call_ollama(prompt: str, schema: Type[T], complexity: str) -> T:
     default_model = "qwen2.5-coder:14b" if complexity == "pro" else "qwen2.5-coder:7b"
     model_name = os.environ.get("OLLAMA_MODEL", default_model)
 
-    console.print(f"[magenta]Offline Mode:[/magenta] Running local Ollama model [bold]{model_name}[/bold]...")
     payload = {
         "model": model_name,
         "messages": [{"role": "user", "content": prompt}],
@@ -79,11 +79,12 @@ def _call_ollama(prompt: str, schema: Type[T], complexity: str) -> T:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    try:
-        with urllib.request.urlopen(req, timeout=180) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            cleaned = _clean_json_str(data["message"]["content"])
-            return schema.model_validate_json(cleaned)
-    except Exception as exc:
-        console.print(f"[bold red]Ollama Error:[/bold red] Could not reach {base_url} ({exc}).")
-        raise typer.Exit(1)
+    with console.status(f"[magenta]Offline Mode: Querying local Ollama model [bold]{model_name}[/bold]...[/magenta]", spinner="dots"):
+        try:
+            with urllib.request.urlopen(req, timeout=180) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                cleaned = _clean_json_str(data["message"]["content"])
+                return schema.model_validate_json(cleaned)
+        except Exception as exc:
+            console.print(f"[bold red]Ollama Error:[/bold red] Could not reach {base_url} ({exc}).")
+            raise typer.Exit(1)
