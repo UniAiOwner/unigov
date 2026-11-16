@@ -21,7 +21,7 @@ IGNORED_DIRS = {
 
 
 def find_candidate_files(root_dir: Path, target_files: List[str], task_title: str, task_desc: str) -> List[Path]:
-    """Finds exact or fuzzy-matched files in the project corresponding to a task."""
+    """Finds exact or fuzzy-matched files in the project corresponding to a task using path and content indexing."""
     candidates: List[Path] = []
     seen = set()
 
@@ -32,35 +32,82 @@ def find_candidate_files(root_dir: Path, target_files: List[str], task_title: st
             candidates.append(p)
             seen.add(p.resolve())
 
-    # 2. Basename & keyword matching across repository
-    stem_keywords = set()
+    # 2. Determine primary source directory to search first
+    src_roots = []
+    for cand_dir in [root_dir / "app" / "src" / "main", root_dir / "src", root_dir / "lib"]:
+        if cand_dir.exists() and cand_dir.is_dir():
+            src_roots.append(cand_dir)
+    if not src_roots:
+        src_roots = [root_dir]
+
+    # 3. Extract alphanumeric tokens from target files, title and description
+    tokens = set()
     for tf in target_files:
-        stem = Path(tf).stem.lower()
-        parts = re.split(r"[_\W]+", stem)
-        stem_keywords.update(p for p in parts if len(p) >= 3)
+        stem = Path(tf).stem
+        for p in re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|\d|\W|$)", stem):
+            if len(p) >= 3 and p.lower() not in {"file", "test", "impl", "class"}:
+                tokens.add(p)
 
-    for word in re.split(r"[_\W]+", task_title.lower()):
-        if len(word) >= 4 and word not in {"build", "update", "implement", "create", "test", "task"}:
-            stem_keywords.add(word)
+    for word in re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|\d|\W|$)", f"{task_title} {task_desc}"):
+        if len(word) >= 4 and word.lower() not in {"build", "update", "implement", "create", "test", "task", "handle", "atomic"}:
+            tokens.add(word)
 
+    # 4. Use ripgrep (rg) if available to locate relevant files by content tokens
     exts = {".kt", ".java", ".py", ".ts", ".tsx", ".rs", ".go", ".cpp", ".c", ".h"}
+    rg_matches = []
+    if tokens:
+        pattern = "|".join(re.escape(t) for t in tokens if len(t) >= 3)
+        try:
+            import subprocess
+            for sroot in src_roots:
+                cmd = ["rg", "-l", "-i", pattern, str(sroot)]
+                res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+                for line in res.stdout.splitlines():
+                    lp = Path(line.strip())
+                    if lp.is_file() and lp.suffix in exts and lp.resolve() not in seen:
+                        rg_matches.append(lp)
+        except Exception:
+            pass
 
-    for path in root_dir.rglob("*"):
-        if any(ignored in path.parts for ignored in IGNORED_DIRS):
-            continue
-        if path.is_file() and path.suffix in exts:
-            if path.resolve() in seen:
-                continue
-            name_lower = path.name.lower()
-            # If name matches any strong stem keyword
-            matches = [kw for kw in stem_keywords if kw in name_lower]
-            if matches:
-                candidates.append(path)
-                seen.add(path.resolve())
-                if len(candidates) >= 6:
-                    break
+    # 5. Score candidates by token match density
+    scored = []
+    for p in (candidates + rg_matches):
+        try:
+            content = p.read_text(encoding="utf-8", errors="ignore")
+            # Base score: name match = 3, content token matches = 1 each
+            name_score = sum(3 for t in tokens if t.lower() in p.name.lower())
+            body_score = sum(1 for t in tokens if t.lower() in content.lower())
+            scored.append((name_score + body_score, p))
+        except Exception:
+            scored.append((1, p))
 
-    return candidates
+    # Also search by basename if still empty
+    if not scored:
+        stem_keywords = {t.lower() for t in tokens}
+        for sroot in src_roots:
+            for path in sroot.rglob("*"):
+                if any(ignored in path.parts for ignored in IGNORED_DIRS):
+                    continue
+                if path.is_file() and path.suffix in exts:
+                    if path.resolve() in seen:
+                        continue
+                    matches = [kw for kw in stem_keywords if kw in path.name.lower()]
+                    if matches:
+                        scored.append((len(matches), path))
+                        seen.add(path.resolve())
+                        if len(scored) >= 6:
+                            break
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    final_candidates = []
+    for _, path in scored:
+        if path.resolve() not in seen:
+            seen.add(path.resolve())
+            final_candidates.append(path)
+        if len(final_candidates) >= 5:
+            break
+
+    return final_candidates or candidates
 
 
 def extract_code_excerpts(files: List[Path], max_chars: int = 5000) -> str:
