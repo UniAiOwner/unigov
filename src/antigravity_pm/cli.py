@@ -91,9 +91,36 @@ def ingest(
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model name"),
     provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Override provider (gemini|ollama)"),
     yes: bool = typer.Option(False, "--yes", "-y", help="Auto-approve without interactive prompts"),
+    reconcile: bool = typer.Option(True, "--reconcile/--no-reconcile", help="Automatically audit codebase reality and mark already implemented tasks"),
 ) -> None:
     """Study project docs, resolve cross-doc conflicts, and build hierarchical DAG tasks."""
-    ingest_path(target, model=model, provider=provider, auto_approve=yes)
+    ingest_path(target, model=model, provider=provider, auto_approve=yes, auto_reconcile=reconcile)
+
+
+@app.command()
+def reconcile(
+    target: Path = typer.Option(Path("."), "--dir", "-d", help="Project root directory to scan"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model name"),
+    provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Override provider (gemini|ollama)"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Auto-apply reconciled statuses without confirmation"),
+) -> None:
+    """Audit codebase reality against WBS tasks and reconcile completed vs missing work."""
+    from .reconciler import reconcile_project
+    conn = get_db()
+    reconcile_project(conn, root_dir=target, model=model, provider=provider, auto_apply=yes)
+
+
+@app.command()
+def converge(
+    target: Path = typer.Option(Path("."), "--dir", "-d", help="Project root directory to scan"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model name"),
+    provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Override provider (gemini|ollama)"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Auto-apply reconciled statuses without confirmation"),
+) -> None:
+    """Alias for 'unigov reconcile'."""
+    from .reconciler import reconcile_project
+    conn = get_db()
+    reconcile_project(conn, root_dir=target, model=model, provider=provider, auto_apply=yes)
 
 
 @app.command()

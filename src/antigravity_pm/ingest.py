@@ -52,6 +52,7 @@ def ingest_path(
     model: Optional[str] = None,
     provider: Optional[str] = None,
     auto_approve: bool = False,
+    auto_reconcile: bool = True,
 ) -> None:
     if not target.exists():
         console.print(f"[bold red]Error:[/bold red] Path not found: {target}")
@@ -173,3 +174,7 @@ def ingest_path(
             )
 
     console.print("[bold green]Success:[/bold green] Project Knowledge & DAG synchronized.")
+
+    if auto_reconcile:
+        from .reconciler import reconcile_project
+        reconcile_project(conn, root_dir=Path("."), model=model, provider=provider, auto_apply=auto_approve)

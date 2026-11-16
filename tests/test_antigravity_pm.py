@@ -331,3 +331,51 @@ async def test_dashboard_app_headless(isolated_workspace):
         assert table is not None
         await pilot.press("q")
 
+
+def test_reconcile_find_candidates_and_cascade(isolated_workspace):
+    from antigravity_pm.reconciler import find_candidate_files, cascade_task_completions
+    import sqlite3
+    from pathlib import Path
+
+    # Create dummy source files
+    models_file = Path("app/src/main/domain/AddStockModels.kt")
+    models_file.parent.mkdir(parents=True, exist_ok=True)
+    models_file.write_text("data class InwardStockModel(val id: String)")
+
+    # 1. Test finding candidate files by keyword / target_file
+    candidates = find_candidate_files(
+        root_dir=Path("."),
+        target_files=["domain/model/InwardStockModels.kt"],
+        task_title="Update Inward Domain Models",
+        task_desc="Implement InwardStockModel data classes",
+    )
+    assert len(candidates) >= 1
+    assert any("AddStockModels.kt" in c.as_posix() for c in candidates)
+
+    # 2. Test DAG cascade completion
+    conn = sqlite3.connect(".antigravity/state.db")
+    conn.row_factory = sqlite3.Row
+
+    with conn:
+        conn.execute("INSERT INTO tasks (task_id, parent_id, level, title, description, status) VALUES ('M1', NULL, 'MILESTONE', 'Milestone 1', 'Desc', 'PENDING')")
+        conn.execute("INSERT INTO tasks (task_id, parent_id, level, title, description, status) VALUES ('T1', 'M1', 'TASK', 'Task 1', 'Desc', 'COMPLETED')")
+        conn.execute("INSERT INTO tasks (task_id, parent_id, level, title, description, status) VALUES ('T2', 'M1', 'TASK', 'Task 2', 'Desc', 'PENDING')")
+        conn.execute("INSERT INTO task_dependencies (task_id, depends_on_task_id) VALUES ('T2', 'T1')")
+
+    cascade_task_completions(conn)
+
+    # T2 should be unlocked to READY because T1 is COMPLETED
+    t2 = conn.execute("SELECT status FROM tasks WHERE task_id = 'T2'").fetchone()
+    assert t2["status"] == "READY"
+
+    # Now complete T2
+    with conn:
+        conn.execute("UPDATE tasks SET status = 'COMPLETED' WHERE task_id = 'T2'")
+
+    cascade_task_completions(conn)
+
+    # Parent M1 should now be COMPLETED because all its children are COMPLETED
+    m1 = conn.execute("SELECT status FROM tasks WHERE task_id = 'M1'").fetchone()
+    assert m1["status"] == "COMPLETED"
+
+

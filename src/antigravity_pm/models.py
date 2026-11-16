@@ -51,3 +51,19 @@ class FilePatch(BaseModel):
 class AgentExecutionPlan(BaseModel):
     reasoning: str
     patches: List[FilePatch]
+
+
+class TaskReconciliationResult(BaseModel):
+    task_id: str
+    status: str = Field(..., description="COMPLETED, PARTIAL, or MISSING")
+    matched_files: List[str] = Field(default_factory=list)
+    evidence: str = Field(..., description="Explanation of why it's completed, partial, or missing")
+    missing_items: List[str] = Field(default_factory=list)
+
+
+class ReconciliationSummary(BaseModel):
+    total_tasks: int
+    completed_tasks: int
+    partial_tasks: int
+    missing_tasks: int
+    results: List[TaskReconciliationResult]
