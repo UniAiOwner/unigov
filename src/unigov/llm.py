@@ -37,7 +37,14 @@ def generate_structured(
     active_provider = (provider or os.environ.get("ANTIGRAVITY_PROVIDER", "gemini")).lower().strip()
     if active_provider == "ollama":
         return _call_ollama(prompt, schema, complexity, model=model)
-    return _call_gemini(conn, command_name, prompt, schema, complexity, model=model)
+    try:
+        return _call_gemini(conn, command_name, prompt, schema, complexity, model=model)
+    except Exception as e:
+        err_msg = str(e).lower()
+        if "429" in err_msg or "resource_exhausted" in err_msg or "quota" in err_msg:
+            console.print("[yellow]UniGov: Gemini API quota exhausted (429/Resource Exhausted). Falling back seamlessly to local Ollama (qwen2.5-coder:7b)...[/yellow]")
+            return _call_ollama(prompt, schema, complexity, model="qwen2.5-coder:7b")
+        raise e
 
 
 def _get_gemini_api_key() -> str:

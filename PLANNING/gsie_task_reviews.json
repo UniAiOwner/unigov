@@ -166,5 +166,77 @@
       "git_diff"
     ],
     "first_pass_success": true
+  },
+  {
+    "task_id": "TASK-F5BA76",
+    "project_name": "unigov",
+    "milestone_title": "2026-11-16 \u2014 UniGov v0.6.1 Self-Healing Reconciler, Canonical Path Engine & Mathematical Zero-Glitch Invariant",
+    "timestamp_iso": "2026-11-16T09:19:36.599863+00:00",
+    "verdict": "PASS",
+    "active_primes": [
+      "KOTLIN_ARCHITECT_PRIME"
+    ],
+    "failures": [],
+    "waste": {
+      "rework_cycles": 0,
+      "avoidable_tool_calls": 0,
+      "fast_screencap_available": true
+    },
+    "weaknesses": [],
+    "opportunities": [
+      "green_device_lab_level3_structural_verification"
+    ],
+    "evidence_sources": [
+      "git_diff"
+    ],
+    "first_pass_success": true
+  },
+  {
+    "task_id": "TASK-9A3664",
+    "project_name": "unigov",
+    "milestone_title": "2026-11-16 \u2014 UniGov v0.7.0 Feature Blueprint Pipeline, 3 Performance Upgrades & Candidate Resolution Engine",
+    "timestamp_iso": "2026-11-16T10:31:49.331070+00:00",
+    "verdict": "PASS",
+    "active_primes": [
+      "KOTLIN_ARCHITECT_PRIME"
+    ],
+    "failures": [],
+    "waste": {
+      "rework_cycles": 0,
+      "avoidable_tool_calls": 0,
+      "fast_screencap_available": true
+    },
+    "weaknesses": [],
+    "opportunities": [
+      "green_device_lab_level3_structural_verification"
+    ],
+    "evidence_sources": [
+      "git_diff"
+    ],
+    "first_pass_success": true
+  },
+  {
+    "task_id": "TASK-7E1CFA",
+    "project_name": "unigov",
+    "milestone_title": "2026-11-16 \u2014 UniGov v0.7.0 Feature Blueprint Pipeline, 3 Performance Upgrades & Candidate Resolution Engine",
+    "timestamp_iso": "2026-11-16T13:52:00.099321+00:00",
+    "verdict": "PASS",
+    "active_primes": [
+      "KOTLIN_ARCHITECT_PRIME"
+    ],
+    "failures": [],
+    "waste": {
+      "rework_cycles": 0,
+      "avoidable_tool_calls": 0,
+      "fast_screencap_available": true
+    },
+    "weaknesses": [],
+    "opportunities": [
+      "green_device_lab_level3_structural_verification"
+    ],
+    "evidence_sources": [
+      "git_diff"
+    ],
+    "first_pass_success": true
   }
 ]

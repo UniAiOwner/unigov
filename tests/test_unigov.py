@@ -603,7 +603,7 @@ def test_purge_ghost_files_and_reconcile_orphans(isolated_workspace):
 
 def test_dynamic_version():
     import unigov
-    assert unigov.__version__ == "0.7.0"
+    assert unigov.__version__ == "0.7.1"
 
 
 def test_worktree_sandboxed_lifecycle(isolated_workspace):
@@ -724,6 +724,148 @@ def test_mcp_server_protocol(isolated_workspace):
     assert call_resp["id"] == 3
     content = json.loads(call_resp["result"]["content"][0]["text"])
     assert content["project_name"] == "UniRetail"
+
+
+def test_blueprint_pipeline_and_dag_injection(isolated_workspace):
+    from unigov.blueprint import BlueprintSpec, DomainModelSpec, UIStateSpec, UserIntentSpec, persist_blueprint_and_inject_dag
+    import json
+    import sqlite3
+
+    ws, _ = isolated_workspace
+
+    spec = BlueprintSpec(
+        feature_name="AddStockScreen",
+        description="Stock inwarding screen with multi-box scanning",
+        domain_models=[
+            DomainModelSpec(
+                model_name="InwardBoxUnit",
+                layer="LAYER_1_DOMAIN",
+                target_file="domain/model/InwardBoxUnit.kt",
+                fields=["unitIndex: Int", "imei1: String", "dpPaise: Long"],
+                invariants=["Luhn algorithm IMEI validation", "Zero-float math"]
+            )
+        ],
+        ui_states=[
+            UIStateSpec(state_name="LoadingState", visual_components=["ShimmerCard"], actionable_cta=None),
+            UIStateSpec(state_name="EmptyState", visual_components=["EmptyBoxIllustration"], actionable_cta="Scan First Box"),
+            UIStateSpec(state_name="ContentState", visual_components=["BillCartList", "SummaryCard"], actionable_cta="Confirm Inward"),
+            UIStateSpec(state_name="ErrorState", visual_components=["ErrorBanner"], actionable_cta="Retry Scan"),
+            UIStateSpec(state_name="OfflineState", visual_components=["OfflineIndicator"], actionable_cta=None),
+        ],
+        user_intents=[
+            UserIntentSpec(intent_name="OnScanBox", parameters=["barcode: String"], outcome="Adds InwardBoxUnit to cart")
+        ],
+        mermaid_flowchart="flowchart TD\n  Start --> Scan[Scan Box] --> Validate{Luhn Valid?} --> Save[Save to Cart]"
+    )
+
+    # Persist spec & inject DAG
+    md_file = persist_blueprint_and_inject_dag(spec, project_root=ws)
+    assert md_file.exists()
+    content = md_file.read_text()
+    assert "InwardBoxUnit" in content
+    assert "LoadingState" in content
+    assert "EmptyState" in content
+
+    # Verify DAG tasks injected
+    conn = sqlite3.connect(".antigravity/state.db")
+    conn.row_factory = sqlite3.Row
+
+    tasks = conn.execute("SELECT task_id, level, layer, status FROM tasks WHERE task_id LIKE 'M-FEAT-ADDSTOCKSCREEN%'").fetchall()
+    task_map = {t["task_id"]: t for t in tasks}
+
+    assert "M-FEAT-ADDSTOCKSCREEN" in task_map
+    assert "M-FEAT-ADDSTOCKSCREEN-01-DOM" in task_map
+    assert "M-FEAT-ADDSTOCKSCREEN-02-STATE" in task_map
+    assert "M-FEAT-ADDSTOCKSCREEN-03-UI" in task_map
+    assert "M-FEAT-ADDSTOCKSCREEN-04-TEST" in task_map
+
+    # L1 DOM should be READY, downstream UI should be PENDING or BLOCKED
+    assert task_map["M-FEAT-ADDSTOCKSCREEN-01-DOM"]["status"] == "READY"
+    assert task_map["M-FEAT-ADDSTOCKSCREEN-03-UI"]["status"] in ("PENDING", "BLOCKED")
+
+
+def test_incremental_hash_cache(isolated_workspace):
+    from unigov.baseline import scan_and_lock_baseline
+    import sqlite3
+
+    ws, _ = isolated_workspace
+
+    f1 = ws / "app" / "src" / "main" / "F1.kt"
+    f1.parent.mkdir(parents=True, exist_ok=True)
+    f1.write_text("class F1", encoding="utf-8")
+
+    conn = sqlite3.connect(".antigravity/state.db")
+    conn.row_factory = sqlite3.Row
+
+    # First run - reindexes all
+    res1 = scan_and_lock_baseline(conn, project_root=ws)
+    assert res1["files_reindexed"] >= 1
+    assert res1["files_cached"] == 0
+
+    # Second run - all cached!
+    res2 = scan_and_lock_baseline(conn, project_root=ws)
+    assert res2["files_cached"] >= 1
+    assert res2["files_reindexed"] == 0
+
+
+def test_high_risk_low_test_coverage_alert(isolated_workspace):
+    from unigov.auditor import audit_high_risk_coverage
+
+    ws, _ = isolated_workspace
+
+    # Create a large payment file without a test (> 200 lines)
+    pay_file = ws / "app" / "src" / "main" / "payment" / "PaymentProcessor.kt"
+    pay_file.parent.mkdir(parents=True, exist_ok=True)
+    pay_file.write_text("class PaymentProcessor {\n" + "  val x = 1\n" * 210 + "}")
+
+    physical_files = {"app/src/main/payment/PaymentProcessor.kt"}
+    alerts = audit_high_risk_coverage(ws, physical_files)
+    assert len(alerts) == 1
+    assert alerts[0]["file"] == "app/src/main/payment/PaymentProcessor.kt"
+    assert alerts[0]["loc"] >= 200
+    assert alerts[0]["module"] == "payment"
+
+
+def test_tier1_deterministic_reconciler(isolated_workspace):
+    from unigov.reconciler import check_tier1_deterministic_completion
+    from pathlib import Path
+
+    ws, _ = isolated_workspace
+
+    # Create a real implemented file
+    model_file = ws / "app" / "src" / "main" / "domain" / "InwardBoxModel.kt"
+    model_file.parent.mkdir(parents=True, exist_ok=True)
+    model_file.write_text("data class InwardBoxModel(val id: String)", encoding="utf-8")
+
+    # Check Tier-1 deterministic resolution
+    res = check_tier1_deterministic_completion(
+        root_dir=ws,
+        candidates=[model_file],
+        target_files=["app/src/main/domain/InwardBoxModel.kt"],
+        task_title="Update Inward Box Models",
+        task_desc="Implement InwardBoxModel data class"
+    )
+    assert res is not None
+    assert res.status == "COMPLETED"
+    assert "InwardBoxModel" in res.evidence
+
+
+def test_project_memory_and_registry(isolated_workspace):
+    from pathlib import Path
+    from unigov.db import record_active_project, get_registry_data, resolve_gov_dir
+    ws, _ = isolated_workspace
+
+    # Record active project
+    record_active_project("TestProject", ws)
+    reg = get_registry_data()
+    assert reg["active_project"] == "TestProject"
+    assert reg["active_path"] == str(ws.resolve())
+    assert "TestProject" in reg["projects"]
+
+    # Test fallback resolution when outside project root
+    resolved = resolve_gov_dir(Path("."))
+    # In isolated_workspace, ws has .antigravity
+    assert resolved.exists()
 
 
 

@@ -1,11 +1,11 @@
 {
-  "project_name": "antigravity-pm",
-  "project_root": "/media/uniai/UniAi/PROJECTS_MIGRATED/antigravity-pm",
-  "last_brain_sync_iso": "2026-11-16T14:04:29.077488",
+  "project_name": "unigov",
+  "project_root": "/media/uniai/UniAi/PROJECTS_MIGRATED/unigov",
+  "last_brain_sync_iso": "2026-11-16T19:22:00.006271",
   "memory_tier_status": {
     "tier_0_working_memory": "ACTIVE (Subagent mailboxes, current scratchpad, reactive context)",
     "tier_1_symbolic_ast": "SYNCHRONIZED (0 Entities, 0 UI Composables, Kotlin AST)",
-    "tier_2_episodic_memory": "SYNCHRONIZED (12 chronological dev log milestones)",
+    "tier_2_episodic_memory": "SYNCHRONIZED (14 chronological dev log milestones)",
     "tier_3_semantic_graph": "SYNCHRONIZED (HippoRAG 2 PageRank across 1 subprojects)",
     "tier_4_epistemic_invariants": "ENFORCED (Sovereign Invariant Laws, Zero-@Suppress Rule, Law ACC-001)"
   },
@@ -16,7 +16,7 @@
     ],
     "entities_count": 0,
     "composables_count": 0,
-    "latest_milestone": "## \ud83d\udcc5 Date: 2026-11-16 \u2014 GitHub Repository Rebrand, README 2026 SOTA Redesign & Full UniRetail Re-Audit"
+    "latest_milestone": "## \ud83d\udcc5 Date: 2026-11-16 \u2014 UniGov v0.7.0 Feature Blueprint Pipeline, 3 Performance Upgrades & Candidate Resolution Engine"
   },
   "quality_gates": {
     "spotless_ktlint": "100% PASSED",
@@ -36,7 +36,9 @@
     "phase_9_unigov_v0_5_1_metacognitive_self": "COMPLETED",
     "phase_10_unigov_v0_6_0_sovereign_workspac": "COMPLETED",
     "phase_11_official_project_re_designation": "COMPLETED",
-    "phase_12_github_repository_rebrand__readm": "COMPLETED"
+    "phase_12_github_repository_rebrand__readm": "COMPLETED",
+    "phase_13_unigov_v0_6_1_self_healing_recon": "COMPLETED",
+    "phase_14_unigov_v0_7_0_feature_blueprint": "COMPLETED"
   },
   "deliberative_reasoning_gate": {
     "engine": "UniCortexDeliberativeReasoner v2.0",
@@ -56,20 +58,20 @@
   "uniagi_epistemic_learning_state": {
     "cortex_db_path": "/media/uniai/UniAi/AI/UniAGI/uniagi_experience_master.db",
     "merkle_chain_valid": true,
-    "total_l0_episodes": 15074,
+    "total_l0_episodes": 15129,
     "total_l2_candidates": 11,
-    "active_l3_verified_assets": 12113,
+    "active_l3_verified_assets": 12145,
     "latest_consolidation": {
       "l0_processed": 0,
       "l1_generated": 0,
       "l2_updated": 9,
       "l3_promoted": 4,
       "l3_invalidated": 0,
-      "total_active_l3_assets": 12113
+      "total_active_l3_assets": 12145
     },
     "latest_materialization": {
       "skills_updated": 4,
-      "assets_materialized": 12113,
+      "assets_materialized": 12145,
       "files_written": [
         "/home/uniai/.agents/skills/kotlin-systems-architect/SKILL.md",
         "/home/uniai/.gemini/config/skills/kotlin-systems-architect/SKILL.md",

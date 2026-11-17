@@ -8,15 +8,104 @@ from rich.console import Console
 
 console = Console()
 
+GLOBAL_UNIGOV_DIR = Path.home() / ".unigov"
+REGISTRY_FILE = GLOBAL_UNIGOV_DIR / "registry.json"
+
+
+def get_registry_data() -> dict:
+    if not REGISTRY_FILE.exists():
+        return {"active_project": None, "active_path": None, "projects": {}}
+    try:
+        import json
+        return json.loads(REGISTRY_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {"active_project": None, "active_path": None, "projects": {}}
+
+
+def save_registry_data(data: dict) -> None:
+    try:
+        import json
+        GLOBAL_UNIGOV_DIR.mkdir(parents=True, exist_ok=True)
+        REGISTRY_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def record_active_project(project_name: str, project_root: Path) -> None:
+    data = get_registry_data()
+    abs_path = str(project_root.resolve())
+    data["active_project"] = project_name
+    data["active_path"] = abs_path
+    if "projects" not in data:
+        data["projects"] = {}
+    data["projects"][project_name] = abs_path
+    save_registry_data(data)
+
+
+def _try_register_project(project_root: Path, gov_dir: Path) -> None:
+    try:
+        db_file = gov_dir / "state.db"
+        if db_file.exists():
+            c = sqlite3.connect(db_file)
+            c.row_factory = sqlite3.Row
+            row = c.execute("SELECT project_name FROM project_vision WHERE id = 1").fetchone()
+            c.close()
+            if row and row["project_name"]:
+                record_active_project(row["project_name"], project_root)
+    except Exception:
+        pass
+
 
 def resolve_gov_dir(project_root: Path = Path(".")) -> Path:
-    """Resolves sovereign governance directory, respecting .unigov first then legacy .antigravity."""
+    """Resolves sovereign governance directory, respecting .unigov first then legacy .antigravity.
+    If current directory is uninitialized, transparently falls back to the remembered active project."""
+    abs_root = project_root.resolve()
+
+    # User Home directory is NEVER a project workspace; transparently use active project
+    if abs_root == Path.home():
+        reg = get_registry_data()
+        if reg.get("active_path"):
+            active_p = Path(reg["active_path"])
+            if (active_p / ".unigov" / "state.db").exists():
+                return active_p / ".unigov"
+            if (active_p / ".antigravity" / "state.db").exists():
+                return active_p / ".antigravity"
+            if (active_p / ".unigov").exists():
+                return active_p / ".unigov"
+            if (active_p / ".antigravity").exists():
+                return active_p / ".antigravity"
+
     unigov_dir = project_root / ".unigov"
     ag_dir = project_root / ".antigravity"
-    if unigov_dir.exists():
+
+    # 1. Direct match: initialized state.db in current directory
+    if (unigov_dir / "state.db").exists():
+        _try_register_project(project_root, unigov_dir)
         return unigov_dir
-    if ag_dir.exists():
+    if (ag_dir / "state.db").exists():
+        _try_register_project(project_root, ag_dir)
         return ag_dir
+
+    # 2. Support freshly created directory (e.g. during unigov init) if not home directory
+    if unigov_dir.exists() and abs_root != Path.home() and (unigov_dir / "docs").exists():
+        return unigov_dir
+
+    # 3. Fallback to active project if run from generic directory (e.g. ~, /tmp, systemd service)
+    reg = get_registry_data()
+    if reg.get("active_path"):
+        active_p = Path(reg["active_path"])
+        if (active_p / ".unigov" / "state.db").exists():
+            return active_p / ".unigov"
+        if (active_p / ".antigravity" / "state.db").exists():
+            return active_p / ".antigravity"
+        if (active_p / ".unigov").exists():
+            return active_p / ".unigov"
+        if (active_p / ".antigravity").exists():
+            return active_p / ".antigravity"
+
+    if ag_dir.exists() and abs_root != Path.home():
+        return ag_dir
+
     return unigov_dir
 
 

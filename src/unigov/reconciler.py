@@ -202,16 +202,16 @@ def find_candidate_files(root_dir: Path, target_files: List[str], task_title: st
                             break
 
     scored.sort(key=lambda x: x[0], reverse=True)
-    final_candidates = []
-    out_seen = set()
+    final_candidates = list(candidates)
+    seen_final = {c.resolve() for c in candidates}
     for _, path in scored:
-        if path.resolve() not in out_seen:
-            out_seen.add(path.resolve())
+        if path.resolve() not in seen_final:
+            seen_final.add(path.resolve())
             final_candidates.append(path)
-        if len(final_candidates) >= 5:
+        if len(final_candidates) >= 6:
             break
 
-    return final_candidates or candidates
+    return final_candidates
 
 
 def extract_code_excerpts(files: List[Path], max_chars: int = 5000) -> str:
@@ -229,6 +229,54 @@ def extract_code_excerpts(files: List[Path], max_chars: int = 5000) -> str:
     return "\n".join(excerpts)
 
 
+def check_tier1_deterministic_completion(
+    root_dir: Path,
+    candidates: List[Path],
+    target_files: List[str],
+    task_title: str,
+    task_desc: str,
+) -> Optional[TaskReconciliationResult]:
+    """Tier-1: Zero-LLM AST/Symbol/File check.
+    Returns TaskReconciliationResult if conclusive, otherwise None (fallback to LLM).
+    """
+    if not candidates or not target_files:
+        return None
+
+    # Check if all target files exist physically on disk
+    existing_targets = []
+    for tf in target_files:
+        norm_tf = normalize_posix_path(tf)
+        for c in candidates:
+            if norm_tf in normalize_posix_path(c):
+                existing_targets.append(c)
+                break
+
+    if len(existing_targets) == len(target_files):
+        classes_or_functions = []
+        for cand in existing_targets:
+            try:
+                text = cand.read_text(encoding="utf-8", errors="ignore")
+                defs = re.findall(r"(class\s+([A-Za-z0-9_]+)|fun\s+([A-Za-z0-9_]+)|def\s+([A-Za-z0-9_]+)|interface\s+([A-Za-z0-9_]+))", text)
+                for d in defs:
+                    symbol = next(s for s in d[1:] if s)
+                    classes_or_functions.append(symbol)
+            except Exception:
+                pass
+
+        if classes_or_functions:
+            title_tokens = [w.lower() for w in re.findall(r"[A-Za-z0-9]+", task_title) if len(w) >= 4 and w.lower() not in {"implement", "update", "build", "create", "task"}]
+            matching_symbols = [sym for sym in classes_or_functions if any(t in sym.lower() for t in title_tokens)]
+            if matching_symbols:
+                return TaskReconciliationResult(
+                    task_id="",
+                    status="COMPLETED",
+                    matched_files=[c.as_posix() for c in existing_targets],
+                    evidence=f"Tier-1 Deterministic AST: Found implemented symbol(s) [{', '.join(matching_symbols[:3])}] in target file(s) ({', '.join(c.name for c in existing_targets)}).",
+                    missing_items=[],
+                )
+    return None
+
+
 def reconcile_single_task(
     conn: sqlite3.Connection,
     task_row: sqlite3.Row,
@@ -241,6 +289,18 @@ def reconcile_single_task(
     desc = task_row["description"]
     target_files = json.loads(task_row["target_files_json"] or "[]")
 
+    # 0. Deterministic Pass-Through for already COMPLETED tasks whose target files exist
+    if task_row["status"] == "COMPLETED" and target_files:
+        existing_targets = [root_dir / tf for tf in target_files if (root_dir / tf).exists()]
+        if len(existing_targets) == len(target_files):
+            return TaskReconciliationResult(
+                task_id=task_id,
+                status="COMPLETED",
+                matched_files=[c.as_posix() for c in existing_targets],
+                evidence=f"Deterministic Verification: Previously completed task with verified physical target files ({', '.join(c.name for c in existing_targets)}).",
+                missing_items=[],
+            )
+
     candidates = find_candidate_files(root_dir, target_files, title, desc)
     if not candidates:
         return TaskReconciliationResult(
@@ -250,6 +310,12 @@ def reconcile_single_task(
             evidence="No matching source files found in the repository.",
             missing_items=target_files or [title],
         )
+
+    # Tier 1: Deterministic Zero-LLM Check
+    tier1_res = check_tier1_deterministic_completion(root_dir, candidates, target_files, title, desc)
+    if tier1_res:
+        tier1_res.task_id = task_id
+        return tier1_res
 
     code_context = extract_code_excerpts(candidates)
     if not code_context.strip():

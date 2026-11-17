@@ -9,7 +9,7 @@ from rich.panel import Panel
 from rich.tree import Tree
 from rich.table import Table
 
-from .db import get_db, init_schema, DB_PATH
+from .db import get_db, init_schema, DB_PATH, resolve_gov_dir
 from .ingest import ingest_path
 from .drift import run_drift_check, install_pre_commit_hook
 from .executor import pick_next_ready_task, execute_task_with_agent, verify_and_unlock, rollback_task
@@ -184,6 +184,19 @@ def converge(
     from .reconciler import reconcile_project
     conn = get_db()
     reconcile_project(conn, root_dir=target, model=model, provider=provider, auto_apply=yes, purge_ghosts=purge_ghosts, reconcile_orphans=reconcile_orphans)
+
+
+@app.command(name="blueprint")
+def blueprint_cmd(
+    feature: str = typer.Argument(..., help="Feature or screen name to architect (e.g. AddStockScreen, BillingCartScreen)"),
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Path to project root"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model name"),
+    provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Override provider (gemini|ollama)"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Auto-approve blueprint without interactive confirmation"),
+) -> None:
+    """Architect a feature/screen: 5 UI states, domain models, UX flow, and topological DAG tasks."""
+    from .blueprint import generate_feature_blueprint
+    generate_feature_blueprint(feature_name=feature, project_root=dir, model=model, provider=provider, auto_approve=yes)
 
 
 @app.command(name="scaffold-docs")
@@ -475,7 +488,8 @@ def watch_cmd(
     conn = get_db()
     vision = conn.execute("SELECT * FROM project_vision WHERE id = 1").fetchone()
     project_name = vision["project_name"]
-    log_file = DB_PATH.parent / "watch.log"
+    active_gov_dir = resolve_gov_dir()
+    log_file = active_gov_dir / "watch.log"
 
     console.print(f"[bold green]Starting UniGov Continuous Watcher for '{project_name}' (Interval: {interval}s)...[/bold green]")
     if daemon:
@@ -488,9 +502,12 @@ def watch_cmd(
         alerts = []
 
         # 1. Contract sync check
-        contract_alerts = check_ecosystem_sync(project_name)
-        if contract_alerts:
-            alerts.extend(contract_alerts)
+        try:
+            contract_alerts = check_ecosystem_sync(project_name)
+            if contract_alerts:
+                alerts.extend(contract_alerts)
+        except Exception:
+            pass
 
         # 2. Staged secret check
         try:
@@ -614,6 +631,82 @@ def worktree_cleanup_cmd(
     from .worktree import cleanup_task_worktree
     cleanup_task_worktree(Path("."), task_id)
     console.print(f"[yellow]Cleaned up worktree for task {task_id}.[/yellow]")
+
+
+@app.command(name="project")
+def project_cmd(
+    switch_to: Optional[str] = typer.Argument(None, help="Project name or path to switch active context to"),
+) -> None:
+    """Show or switch the active project remembered by UniGov across all sessions."""
+    from .db import get_registry_data, save_registry_data
+    reg = get_registry_data()
+    if switch_to:
+        target_path = None
+        target_name = switch_to
+        if switch_to in reg.get("projects", {}):
+            target_path = Path(reg["projects"][switch_to])
+        else:
+            p = Path(switch_to).resolve()
+            if (p / ".unigov").exists() or (p / ".antigravity").exists():
+                target_path = p
+                target_name = p.name
+        if not target_path or not target_path.exists():
+            console.print(f"[bold red]Error:[/bold red] Project '{switch_to}' not found or not initialized.")
+            raise typer.Exit(1)
+        reg["active_project"] = target_name
+        reg["active_path"] = str(target_path)
+        if "projects" not in reg:
+            reg["projects"] = {}
+        reg["projects"][target_name] = str(target_path)
+        save_registry_data(reg)
+        console.print(f"[bold green]Switched active project to:[/bold green] [bold cyan]{target_name}[/bold cyan] ({target_path})")
+        return
+
+    active = reg.get("active_project", "None")
+    active_path = reg.get("active_path", "None")
+    console.print(f"[bold]Active Project:[/bold] [bold cyan]{active}[/bold cyan] ({active_path})")
+    if reg.get("projects"):
+        console.print("\n[bold]Known Ecosystem Projects:[/bold]")
+        for name, path in reg["projects"].items():
+            marker = "[green]● ACTIVE[/green]" if name == active else "[dim]○[/dim]"
+            console.print(f"  {marker} [bold]{name}[/bold] -> {path}")
+
+
+@app.command(name="install-service")
+def install_service_cmd(
+    interval: int = typer.Option(30, "--interval", "-i", help="Watch cycle interval in seconds"),
+) -> None:
+    """Install and enable UniGov Continuous Watcher as a persistent Linux systemd user daemon."""
+    import sys
+    systemd_user_dir = Path.home() / ".config" / "systemd" / "user"
+    systemd_user_dir.mkdir(parents=True, exist_ok=True)
+    service_file = systemd_user_dir / "unigov-watcher.service"
+
+    python_bin = sys.executable
+    service_content = f"""[Unit]
+Description=UniGov Continuous Sovereign Project Governance & Drift Sentinel
+After=default.target
+
+[Service]
+Type=simple
+ExecStart={python_bin} -m unigov.cli watch --daemon --interval {interval}
+Restart=always
+RestartSec=5s
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target
+"""
+    service_file.write_text(service_content, encoding="utf-8")
+    console.print(f"[bold green]Wrote systemd service unit:[/bold green] {service_file}")
+
+    try:
+        subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
+        subprocess.run(["systemctl", "--user", "enable", "--now", "unigov-watcher.service"], check=True)
+        console.print("[bold green]UniGov Continuous Watcher service enabled and started via systemd![/bold green]")
+        console.print("[cyan]Check status anytime:[/cyan] systemctl --user status unigov-watcher.service")
+    except Exception as exc:
+        console.print(f"[yellow]Warning enabling systemd service:[/yellow] {exc}")
 
 
 if __name__ == "__main__":

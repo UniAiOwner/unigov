@@ -7,7 +7,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from .constants import CODE_EXTENSIONS, DEFAULT_IGNORE_DIRS, normalize_posix_path
+from .constants import CODE_EXTENSIONS, DEFAULT_IGNORE_DIRS, normalize_posix_path, compute_file_hash
 
 console = Console()
 
@@ -130,18 +130,40 @@ def classify_source_file(rel_posix: str) -> Tuple[str, str, str]:
     )
 
 
+def load_hash_cache(gov_dir: Path) -> dict[str, str]:
+    """Loads incremental content hash cache mapping relative paths to SHA-256 fingerprints."""
+    cache_file = gov_dir / "cache" / "hashes.json"
+    if cache_file.exists():
+        try:
+            return json.loads(cache_file.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+    return {}
+
+
+def save_hash_cache(gov_dir: Path, cache: dict[str, str]) -> None:
+    """Persists incremental content hash cache to .unigov/cache/hashes.json."""
+    cache_dir = gov_dir / "cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_file = cache_dir / "hashes.json"
+    cache_file.write_text(json.dumps(cache, indent=2), encoding="utf-8")
+
+
 def scan_and_lock_baseline(conn: sqlite3.Connection, project_root: Path = Path(".")) -> dict:
-    """
-    Deterministic zero-LLM AST/Package scanner.
+    """Deterministic zero-LLM AST/Package scanner with incremental SHA-256 caching.
     Indexes all existing production files into M0-BASELINE (STATUS = COMPLETED).
     """
     from .db import resolve_gov_dir
 
     ignore_patterns = load_unigovernor_ignores(project_root)
     gov_dir = resolve_gov_dir(project_root)
+    hash_cache = load_hash_cache(gov_dir)
+    new_cache: dict[str, str] = {}
 
     subsystems: Dict[str, Dict] = {}
     total_files = 0
+    cached_count = 0
+    reindexed_count = 0
 
     for path in project_root.rglob("*"):
         if not path.is_file():
@@ -153,6 +175,14 @@ def scan_and_lock_baseline(conn: sqlite3.Connection, project_root: Path = Path("
             continue
 
         rel_posix = normalize_posix_path(rel_path)
+        f_hash = compute_file_hash(path)
+        new_cache[rel_posix] = f_hash
+
+        if rel_posix in hash_cache and hash_cache[rel_posix] == f_hash:
+            cached_count += 1
+        else:
+            reindexed_count += 1
+
         sub_id, sub_title, layer = classify_source_file(rel_posix)
 
         if sub_id not in subsystems:
@@ -164,6 +194,8 @@ def scan_and_lock_baseline(conn: sqlite3.Connection, project_root: Path = Path("
             }
         subsystems[sub_id]["files"].append(rel_posix)
         total_files += 1
+
+    save_hash_cache(gov_dir, new_cache)
 
     with conn:
         # 1. Upsert Parent Milestone M0-BASELINE
@@ -208,6 +240,8 @@ def scan_and_lock_baseline(conn: sqlite3.Connection, project_root: Path = Path("
 
     return {
         "total_files": total_files,
+        "files_cached": cached_count,
+        "files_reindexed": reindexed_count,
         "subsystem_count": len(subsystems),
         "subsystems": subsystems,
     }

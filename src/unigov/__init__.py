@@ -4,4 +4,4 @@ try:
     from importlib.metadata import version
     __version__ = version("unigov")
 except Exception:
-    __version__ = "0.7.0"
+    __version__ = "0.7.1"

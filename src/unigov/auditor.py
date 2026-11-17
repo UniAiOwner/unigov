@@ -84,9 +84,26 @@ def run_offline_audit(project_root: Path = Path(".")) -> None:
         border_style="cyan",
     ))
 
+    high_risk = audit_high_risk_coverage(project_root, physical_code_files)
+
     if contract_alerts:
         for alert in contract_alerts:
             console.print(f"[bold red]• {alert}[/bold red]")
+
+    if high_risk:
+        t_risk = Table(title="⚠️ High Risk / Low Test Coverage (Critical Modules > 200 LOC Without Direct Test)", border_style="red")
+        t_risk.add_column("Source File", style="bold red")
+        t_risk.add_column("Category", style="yellow")
+        t_risk.add_column("LOC", style="white", justify="right")
+        t_risk.add_column("Action Needed", style="dim")
+        for hr in high_risk[:8]:
+            t_risk.add_row(
+                hr["file"],
+                hr["module"].upper(),
+                f"{hr['loc']:,}",
+                "Author unit test asserting monetary/schema invariants"
+            )
+        console.print(t_risk)
 
     if stale_tasks or failed_tasks:
         table = Table(title="Tasks Requiring Attention")
@@ -102,3 +119,38 @@ def run_offline_audit(project_root: Path = Path(".")) -> None:
         console.print("\n[bold yellow]Orphan Source Files (Not mapped to any DAG task):[/bold yellow]")
         for of in sorted(orphan_files)[:25]:
             console.print(f"  - {of}")
+
+
+CRITICAL_FINANCIAL_MODULES = {
+    "money", "ledger", "payment", "billing", "discount", "tradein",
+    "pricing", "invoice", "dao", "migration", "cashdrawer", "stockinward"
+}
+
+
+def audit_high_risk_coverage(project_root: Path, physical_files: set[str]) -> list[dict]:
+    """Cross-references critical financial/accounting/transaction code files against test suites.
+    Flags any file > 200 LOC with zero matching unit test file.
+    """
+    all_test_files = {f.lower() for f in physical_files if "test" in f.lower() or "spec" in f.lower()}
+    high_risk_alerts: list[dict] = []
+
+    for rel_posix in physical_files:
+        lower = rel_posix.lower()
+        if any(k in lower for k in CRITICAL_FINANCIAL_MODULES) and not ("test" in lower or "spec" in lower):
+            p = project_root / rel_posix
+            try:
+                loc = sum(1 for l in p.open("r", encoding="utf-8", errors="ignore") if l.strip() and not l.strip().startswith("//"))
+            except Exception:
+                loc = 0
+
+            if loc >= 200:
+                stem = p.stem.lower()
+                has_test = any(stem in tf for tf in all_test_files)
+                if not has_test:
+                    high_risk_alerts.append({
+                        "file": rel_posix,
+                        "loc": loc,
+                        "module": next(k for k in CRITICAL_FINANCIAL_MODULES if k in lower),
+                    })
+
+    return sorted(high_risk_alerts, key=lambda x: x["loc"], reverse=True)

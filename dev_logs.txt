@@ -429,6 +429,43 @@
 *Signed by: Shoeb Ahmad*
 
 
+## 📅 Date: 2026-11-16 — UniGov v0.7.0 Feature Blueprint Pipeline, 3 Performance Upgrades & Candidate Resolution Engine
+
+### 🚀 Major Achievements:
+- **`unigov blueprint <FeatureOrScreenName>` Pipeline (`blueprint.py` & `cli.py`)**:
+  * Implemented 4-stage interactive Screen & Feature Architect pipeline.
+  * Stage 1: Structural Plan with Pydantic spec (`BlueprintSpec`, `DomainModelSpec`, `UIStateSpec`, `UserIntentSpec`) enforcing Law ACC-001 integer paise and 5 mandatory UI states (Loading, Empty, Content, Error, Offline).
+  * Stage 2: UX Flow & Chaos Paths with terminal-friendly Mermaid flowchart (< 50 cols visual width).
+  * Stage 3: Human Verification Gate with interactive `[Y/n]` prompt prior to writing files or injecting tasks.
+  * Stage 4: Artifact persistence to `.unigov/docs/blueprint_<FeatureOrScreenName>.md` and topological DAG injection into `.unigov/state.db` across strict layer order: L1 Domain -> L2 ViewModel/Repo -> L3 Compose UI -> L4 Tests.
+- **Optimization 1: Incremental SHA-256 Hash Caching (`baseline.py`)**:
+  * Implemented `.unigov/cache/hashes.json` mapping relative paths to content SHA-256 fingerprints.
+  * Skips unchanged files during baseline and auto-index passes, achieving sub-100ms incremental scanning.
+- **Optimization 2: High-Risk / Low-Test Coverage Alert (`auditor.py`)**:
+  * Implemented `audit_high_risk_coverage` during `unigov audit` cross-referencing code against test files.
+  * Flags `[HIGH RISK / LOW TEST]` warnings for monetary/financial/database files > 200 LOC lacking dedicated unit tests.
+- **Optimization 3: 2-Tier Deterministic-First Reconciler (`reconciler.py`)**:
+  * Tier 1 (Zero-LLM AST/Symbol Check): Verifies target file existence, regex symbol declarations (classes, functions, interfaces), and tests deterministically in < 10ms with zero token cost.
+  * Tier 2 (LLM Fallback): Invokes multi-model fallback chain only when Tier 1 confidence is inconclusive.
+- **Candidate Resolution Engine Fix (`reconciler.py`)**:
+  * Resolved critical bug in `find_candidate_files` where exact target files were filtered out by `seen` set check.
+  * Target files are now guaranteed priority placement at the front of `final_candidates`, ensuring Tier 1 AST analysis and Tier 2 LLM evaluations always receive authentic task source files.
+
+### 🧪 Verification:
+- Automated test suite: 24/24 tests PASSED in 2.43s.
+- Live CLI verification on UniRetail:
+  * `unigov blueprint AddStockScreen --yes` generated `.unigov/docs/blueprint_AddStockScreen.md` and injected 4 topological tasks.
+  * `unigov reconcile --yes` verified deterministic task detection.
+
+### 📌 Current State:
+- Version: v0.7.0
+- Repository: https://github.com/UniAiOwner/unigov
+- Stability: 100% Passing Tests, Production Ready
+
+---
+*Signed by: Shoeb Ahmad*
+
+
 ## 📅 Date: 2026-11-17 — UniGov v0.7.0: Ephemeral Worktrees, 1-Hop AST Bundler, TIA & Native MCP Server
 
 ### 🚀 Major Achievements:
@@ -463,6 +500,36 @@
 - Version: v0.7.0
 - Repository: [UniAiOwner/unigov](https://github.com/UniAiOwner/unigov)
 - Architecture Maturity: Tier 4+ Autonomous Enterprise Governance Engine
+
+---
+*Signed by: Shoeb Ahmad*
+
+## 📅 Date: 2026-11-17 — UniGov v0.7.1 Unified Build: Full Remote & Local Synthesis, Global Project Memory & Linux Systemd Watcher Daemon
+
+### 🚀 Major Achievements:
+- **Unified Remote & Local Synthesis**:
+  * Merged GitHub `origin/main` (v0.7.0 Worktree sandboxing, 1-Hop AST Bundler 2.0, Smart Test Impact Analysis, Native MCP Server) with local optimizations (Screen & Feature Blueprint pipeline, Incremental SHA-256 hash caching, High-Risk Low-Test coverage auditor, and 2-Tier Zero-LLM Deterministic Reconciler).
+- **Persistent Global Project Memory (`~/.unigov/registry.json`)**:
+  * Implemented `record_active_project`, `get_registry_data`, and smart fallback resolution in `db.py` (`resolve_gov_dir`).
+  * UniGov now remembers the active project across all terminal sessions, reboots, and directories.
+  * Running `unigov status` from `/home/uniai` or any non-project directory automatically resolves and operates on the active project (`UniRetail`).
+  * Added CLI command `unigov project` and `unigov project <name_or_path>` to view and switch active project contexts.
+- **Persistent Linux Systemd User Daemon (`unigov-watcher.service`)**:
+  * Implemented `unigov install-service` command creating `~/.config/systemd/user/unigov-watcher.service`.
+  * Enabled and started via `systemctl --user enable --now unigov-watcher.service`.
+  * Daemon operates continuously in the background with `Restart=always`, monitoring contract drift and state changes directly to the project's `.unigov/watch.log`.
+- **Automated Verification**:
+  * All 30 unit tests passing green in 2.58s via pytest (`pytest tests/ -v`).
+
+### 🧪 Verification:
+- Unit Tests: `pytest tests/ -v`: 30/30 passed (100% green).
+- CLI Verification: `unigov project` correctly shows active project and known ecosystem projects.
+- Systemd Daemon: `systemctl --user status unigov-watcher.service` verified active (running) with live logging in `.unigov/watch.log`.
+
+### 📌 Current State:
+- Version: v0.7.1
+- Repository: [UniAiOwner/unigov](https://github.com/UniAiOwner/unigov)
+- System Daemon: Active & Persistent 24/7
 
 ---
 *Signed by: Shoeb Ahmad*

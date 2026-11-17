@@ -11,7 +11,8 @@ CODE_EXTENSIONS: Set[str] = {
 # Standard directories universally ignored across all scanning and indexing
 DEFAULT_IGNORE_DIRS: Set[str] = {
     ".git", ".unigov", ".antigravity", ".venv", "venv", "node_modules",
-    "build", ".gradle", "__pycache__", "dist", ".idea", ".pytest_cache"
+    "build", ".gradle", "__pycache__", "dist", ".idea", ".pytest_cache",
+    ".next", "out", ".turbo", ".expo"
 }
 
 
