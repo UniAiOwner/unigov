@@ -196,3 +196,59 @@ def bundle_one_hop_context(root_dir: Path, target_files: List[str], max_chars: i
         char_count += len(entry)
 
     return "\n".join(blocks) if len(blocks) > 1 else ""
+
+
+def estimate_token_count(text: str) -> int:
+    """Estimates the token count of a given text or code string (1 token ~ 3.8 chars)."""
+    if not text:
+        return 0
+    try:
+        import tiktoken
+        enc = tiktoken.get_encoding("cl100k_base")
+        return len(enc.encode(text, disallowed_special=()))
+    except Exception:
+        # High-accuracy fallback heuristic for code & markdown
+        clean_len = len(text.strip())
+        return max(1, int(clean_len / 3.85))
+
+
+def calculate_token_budget(bundled_prompt: str, context_window: int = 200_000) -> dict:
+    """Calculates context-rot budget metrics and enforces the GSD 0-30% sweet spot."""
+    tokens = estimate_token_count(bundled_prompt)
+    utilization_pct = round((tokens / max(context_window, 1)) * 100, 2)
+
+    if utilization_pct <= 30.0:
+        zone = "SWEET_SPOT"
+        status_label = "🟢 Sweet Spot (Optimal Cognitive Precision)"
+        recommendation = "Safe to proceed with task execution. Cognitive reasoning is 100% sharp."
+    elif utilization_pct <= 50.0:
+        zone = "CAUTION"
+        status_label = "🟡 Caution Zone (Moderate Context Load)"
+        recommendation = "Approaching context saturation. Limit additional files or prepare to compact."
+    else:
+        zone = "ROT_DANGER"
+        status_label = "🔴 Context Rot Alert (High Drift Risk)"
+        recommendation = "Context exceeds 50% capacity! Spawning a fresh sub-agent context window is strongly advised."
+
+    return {
+        "estimated_tokens": tokens,
+        "context_window": context_window,
+        "utilization_pct": utilization_pct,
+        "zone": zone,
+        "status_label": status_label,
+        "recommendation": recommendation,
+    }
+
+
+def render_budget_badge(budget: dict) -> str:
+    """Renders a single-line terminal badge for prompt headers and companion status."""
+    pct = budget["utilization_pct"]
+    tokens = budget["estimated_tokens"]
+    zone = budget["zone"]
+    if zone == "SWEET_SPOT":
+        return f"[green]⬢ Context: {tokens} tok ({pct}%) [SWEET SPOT][/green]"
+    elif zone == "CAUTION":
+        return f"[yellow]⚠️ Context: {tokens} tok ({pct}%) [CAUTION][/yellow]"
+    else:
+        return f"[bold red]🚨 Context: {tokens} tok ({pct}%) [ROT DANGER][/bold red]"
+

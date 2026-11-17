@@ -2,7 +2,7 @@ import os
 import shutil
 import sqlite3
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Any
 import typer
 from rich.console import Console
 
@@ -90,18 +90,19 @@ def resolve_gov_dir(project_root: Path = Path(".")) -> Path:
     if unigov_dir.exists() and abs_root != Path.home() and (unigov_dir / "docs").exists():
         return unigov_dir
 
-    # 3. Fallback to active project if run from generic directory (e.g. ~, /tmp, systemd service)
-    reg = get_registry_data()
-    if reg.get("active_path"):
-        active_p = Path(reg["active_path"])
-        if (active_p / ".unigov" / "state.db").exists():
-            return active_p / ".unigov"
-        if (active_p / ".antigravity" / "state.db").exists():
-            return active_p / ".antigravity"
-        if (active_p / ".unigov").exists():
-            return active_p / ".unigov"
-        if (active_p / ".antigravity").exists():
-            return active_p / ".antigravity"
+    # 3. Fallback to active project ONLY if run without explicit target (i.e. default Path(".")) or from Home
+    if (project_root == Path(".") or abs_root == Path.home()):
+        reg = get_registry_data()
+        if reg.get("active_path"):
+            active_p = Path(reg["active_path"])
+            if (active_p / ".unigov" / "state.db").exists():
+                return active_p / ".unigov"
+            if (active_p / ".antigravity" / "state.db").exists():
+                return active_p / ".antigravity"
+            if (active_p / ".unigov").exists():
+                return active_p / ".unigov"
+            if (active_p / ".antigravity").exists():
+                return active_p / ".antigravity"
 
     if ag_dir.exists() and abs_root != Path.home():
         return ag_dir
@@ -171,9 +172,19 @@ def migrate_legacy_store(project_root: Path = Path(".")) -> Tuple[bool, str]:
     return True, f"Migrated {len(migrated_items)} items from .antigravity to .unigov: {', '.join(migrated_items)}"
 
 
-def get_db(require_init: bool = True) -> sqlite3.Connection:
+def get_db(project_root: Any = None, require_init: bool = True) -> sqlite3.Connection:
     global AG_DIR, DB_PATH
-    active_dir = resolve_gov_dir()
+    if isinstance(project_root, bool):
+        req_init = project_root
+        target_root = Path(".")
+    elif isinstance(project_root, (str, Path)):
+        target_root = Path(project_root)
+        req_init = require_init
+    else:
+        target_root = Path(".")
+        req_init = require_init
+
+    active_dir = resolve_gov_dir(target_root)
     db_file = active_dir / "state.db"
 
     # Support isolated testing fixture monkeypatching
@@ -181,7 +192,7 @@ def get_db(require_init: bool = True) -> sqlite3.Connection:
         active_dir = AG_DIR
         db_file = DB_PATH
 
-    if require_init and not db_file.exists():
+    if req_init and not db_file.exists():
         console.print("[bold red]Error:[/bold red] Workspace not initialized. Run [cyan]unigov init[/cyan] first.")
         raise typer.Exit(1)
 

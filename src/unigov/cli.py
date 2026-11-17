@@ -950,5 +950,136 @@ jobs:
     console.print(f"[bold green]Generated GitHub Actions Sovereign Gate:[/bold green] `{target_path}`")
 
 
+@app.command(name="analyze")
+def analyze_cmd(
+    strict: bool = typer.Option(False, "--strict", "-s", help="Fail with exit code 1 if consistency score is under 90% or ghost tasks exist"),
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Project workspace root directory"),
+) -> None:
+    """Run Spec-Kit Cross-Artifact Consistency Analysis (Specs vs Invariants vs WBS Tasks)."""
+    from .analyzer import run_artifact_analysis, print_analysis_report
+    result = run_artifact_analysis(dir)
+    print_analysis_report(result, console)
+    if strict and (result["consistency_score"] < 90.0 or result["ghost_tasks"]):
+        console.print("[bold red]CI Gate Failure: Cross-artifact consistency under threshold![/bold red]")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="budget")
+def budget_cmd(
+    file_path: Optional[Path] = typer.Argument(None, help="Optional file or prompt to calculate token budget for"),
+    window: int = typer.Option(200_000, "--window", "-w", help="Context window limit of target LLM"),
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Project root"),
+) -> None:
+    """Calculate GSD Context-Rot Token Budget and verify 0-30% cognitive sweet spot."""
+    from .context_bundler import calculate_token_budget
+    from .companion import get_companion_state
+
+    if file_path and file_path.is_file():
+        text = file_path.read_text(encoding="utf-8", errors="ignore")
+        source = f"File: {file_path.name}"
+    else:
+        # Measure active task context payload
+        state = get_companion_state(dir)
+        text = json.dumps(state, indent=2, default=str)
+        source = "Active Companion & Task State"
+
+    budget = calculate_token_budget(text, context_window=window)
+    tokens = budget["estimated_tokens"]
+    pct = budget["utilization_pct"]
+    zone = budget["zone"]
+    color = "green" if zone == "SWEET_SPOT" else ("yellow" if zone == "CAUTION" else "red")
+
+    table = Table(title=f"🧠 Context-Rot Token Budget Meter ({source})", box=None)
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="bold white")
+    table.add_column("Interpretation", style="dim")
+
+    table.add_row("Estimated Tokens", f"{tokens:,}", f"~{tokens * 3.85:.0f} characters")
+    table.add_row("Context Window", f"{window:,}", "Max token ceiling")
+    table.add_row("Utilization", f"[{color}]{pct}%[/{color}]", "Sweet spot target: <= 30.0%")
+    table.add_row("Zone Status", f"[{color}]{budget['status_label']}[/{color}]", budget["recommendation"])
+
+    console.print(Panel(table, border_style=color))
+
+
+@app.command(name="propose")
+def propose_cmd(
+    slug: str = typer.Argument(..., help="Alphanumeric slug for the change proposal"),
+    title: Optional[str] = typer.Option(None, "--title", "-t", help="Descriptive human-readable title"),
+    dimension: str = typer.Option("02_DATA_AND_STORAGE", "--dimension", "-dim", help="Primary architectural dimension"),
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Project workspace root"),
+) -> None:
+    """Scaffold a change-centric delta proposal in .unigov/proposals/ (OpenSpec RFC workflow)."""
+    from .proposals import scaffold_proposal
+    res = scaffold_proposal(dir, slug=slug, title=title, dimension=dimension)
+    console.print(Panel(
+        f"[bold green]Scaffolded Delta Proposal: {res['proposal_id']}[/bold green]\n"
+        f"Slug: [cyan]{res['slug']}[/cyan]\n"
+        f"Location: [cyan]{res['directory']}[/cyan]\n"
+        f"Files: {', '.join(res['files_created'])}\n"
+        f"Next: Review & edit [bold white]{res['directory']}/delta_spec.json[/bold white] then run [cyan]unigov apply-proposal {res['slug']}[/cyan]"
+    ))
+
+
+@app.command(name="list-proposals")
+def list_proposals_cmd(
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Project workspace root"),
+) -> None:
+    """List all registered change proposals in .unigov/proposals/."""
+    from .proposals import list_proposals
+    proposals = list_proposals(dir)
+    if not proposals:
+        console.print("[yellow]No proposals found in .unigov/proposals/. Create one with `unigov propose <slug>`.[/yellow]")
+        return
+
+    table = Table(title="📜 Registered UniGov Change Proposals (OpenSpec RFC)", box=None)
+    table.add_column("Slug", style="cyan")
+    table.add_column("Proposal ID", style="bold white")
+    table.add_column("Title", style="white")
+    table.add_column("Target Dimension", style="dim")
+    table.add_column("Invariants Added", style="magenta")
+    table.add_column("Status", style="bold")
+
+    for p in proposals:
+        status_color = "green" if p["status"] == "APPLIED" else "yellow"
+        table.add_row(
+            p["slug"],
+            p["proposal_id"],
+            p["title"],
+            p["target_dimension"],
+            str(p["added_count"]),
+            f"[{status_color}]{p['status']}[/{status_color}]"
+        )
+    console.print(table)
+
+
+@app.command(name="proposals")
+def proposals_alias(
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Project workspace root"),
+) -> None:
+    """Alias for list-proposals."""
+    list_proposals_cmd(dir=dir)
+
+
+@app.command(name="apply-proposal")
+def apply_proposal_cmd(
+    slug: str = typer.Argument(..., help="Slug of the proposal to apply"),
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Project workspace root"),
+) -> None:
+    """Apply and merge an approved delta proposal into master architecture & record ADR."""
+    from .proposals import apply_proposal
+    res = apply_proposal(dir, slug=slug)
+    if not res["success"]:
+        console.print(f"[bold red]Failed to apply proposal:[/bold red] {res.get('error')}")
+        raise typer.Exit(code=1)
+
+    console.print(Panel(
+        f"[bold green]Applied Change Proposal: {res['proposal_id']}[/bold green]\n"
+        f"Status: [green]APPLIED[/green]\n"
+        f"ADR Ledger Updated: [cyan]{res['adr_recorded']}[/cyan]"
+    ))
+
+
 if __name__ == "__main__":
     app()
+
