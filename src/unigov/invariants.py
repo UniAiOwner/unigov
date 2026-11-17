@@ -131,26 +131,34 @@ def verify_project_spec(docs_dir: Path, conn: sqlite3.Connection) -> SpecVerific
             invariants_extracted=0,
         )
 
-    existing_files = {f.name.lower(): f for f in docs_dir.glob("*.md")}
+    all_md_files = [f for f in docs_dir.glob("**/*.md")]
     coverage_list: List[DimensionCoverage] = []
     all_invariants: List[ArchitecturalInvariant] = []
 
     for meta in DIMENSION_METADATA:
-        fname = meta["filename"].lower()
         matched = False
         target_path = None
         inv_count = 0
+        dim_idx_prefix = f"{meta['index']:02d}"
+        folder_match_name = meta.get("folder_name", "").lower()
+        file_match_name = meta.get("filename", "").lower()
 
-        # Exact or substring match by index / name
-        for ef_name, ef_path in existing_files.items():
-            if ef_name.startswith(f"{meta['index']:02d}") or meta["filename"].lower() in ef_name:
-                matched = True
-                target_path = ef_path.as_posix()
-                text = ef_path.read_text(encoding="utf-8", errors="ignore")
-                extracted = extract_invariants_from_text(text, source_doc=target_path)
+        # Match files directly or within modular dimension folder
+        matching_files = []
+        for ef in all_md_files:
+            rel_parts = [p.lower() for p in ef.relative_to(docs_dir).parts]
+            # Check if any path part or filename matches this dimension index or name
+            if any(part.startswith(dim_idx_prefix) or (folder_match_name and folder_match_name in part) for part in rel_parts) or ef.name.lower().startswith(dim_idx_prefix) or file_match_name in ef.name.lower():
+                matching_files.append(ef)
+
+        if matching_files:
+            matched = True
+            target_path = matching_files[0].parent.as_posix() if len(matching_files) > 1 else matching_files[0].as_posix()
+            for mf in matching_files:
+                f_text = mf.read_text(encoding="utf-8", errors="ignore")
+                extracted = extract_invariants_from_text(f_text, source_doc=mf.as_posix())
                 all_invariants.extend(extracted)
-                inv_count = len(extracted)
-                break
+                inv_count += len(extracted)
 
         coverage_list.append(DimensionCoverage(
             dimension_index=meta["index"],

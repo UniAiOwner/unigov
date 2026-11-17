@@ -203,11 +203,12 @@ def blueprint_cmd(
 
 @app.command(name="scaffold-docs")
 def scaffold_docs(
-    target: Path = typer.Option(Path("docs"), "--dir", "-d", help="Target directory for 15-file architecture suite"),
+    target: Path = typer.Option(Path("docs"), "--dir", "-d", help="Target directory for 15-dimension architecture suite"),
     project_name: Optional[str] = typer.Option(None, "--name", "-n", help="Project name"),
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files"),
+    modular: bool = typer.Option(True, "--modular/--flat", help="Scaffold into 15 modular folders (default) or flat files"),
 ) -> None:
-    """Scaffold complete 15-file production architecture suite with machine-executable invariants."""
+    """Scaffold complete 15-dimension production architecture suite with machine-executable invariants."""
     from .scaffolder import scaffold_documentation_suite
     conn = get_db(require_init=False)
     p_name = project_name
@@ -217,7 +218,7 @@ def scaffold_docs(
             p_name = vision["project_name"]
     p_name = p_name or "Enterprise Mobile OS"
 
-    created = scaffold_documentation_suite(target, project_name=p_name, overwrite=force)
+    created = scaffold_documentation_suite(target, project_name=p_name, overwrite=force, modular=modular)
     console.print(Panel(
         f"[bold green]Successfully scaffolded {len(created)} architectural specification file(s) in {target}/[/bold green]\n"
         f"Project Name: [cyan]{p_name}[/cyan]\n"
@@ -229,12 +230,13 @@ def scaffold_docs(
 
 @app.command(name="scaffold")
 def scaffold_alias(
-    target: Path = typer.Option(Path("docs"), "--dir", "-d", help="Target directory for 15-file architecture suite"),
+    target: Path = typer.Option(Path("docs"), "--dir", "-d", help="Target directory for 15-dimension architecture suite"),
     project_name: Optional[str] = typer.Option(None, "--name", "-n", help="Project name"),
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files"),
+    modular: bool = typer.Option(True, "--modular/--flat", help="Scaffold into 15 modular folders (default) or flat files"),
 ) -> None:
     """Alias for 'unigov scaffold-docs'."""
-    scaffold_docs(target=target, project_name=project_name, force=force)
+    scaffold_docs(target=target, project_name=project_name, force=force, modular=modular)
 
 
 @app.command(name="plan-feature")
