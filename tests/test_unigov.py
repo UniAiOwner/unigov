@@ -850,21 +850,21 @@ def test_tier1_deterministic_reconciler(isolated_workspace):
     assert "InwardBoxModel" in res.evidence
 
 
-def test_project_memory_and_registry(isolated_workspace):
+def test_project_memory_and_registry(isolated_workspace, monkeypatch):
     from pathlib import Path
-    from unigov.db import record_active_project, get_registry_data, resolve_gov_dir
+    import unigov.db
     ws, _ = isolated_workspace
+    monkeypatch.setattr(unigov.db, "REGISTRY_FILE", ws / "registry.json")
 
     # Record active project
-    record_active_project("TestProject", ws)
-    reg = get_registry_data()
+    unigov.db.record_active_project("TestProject", ws)
+    reg = unigov.db.get_registry_data()
     assert reg["active_project"] == "TestProject"
     assert reg["active_path"] == str(ws.resolve())
     assert "TestProject" in reg["projects"]
 
     # Test fallback resolution when outside project root
-    resolved = resolve_gov_dir(Path("."))
-    # In isolated_workspace, ws has .antigravity
+    resolved = unigov.db.resolve_gov_dir(Path("."))
     assert resolved.exists()
 
 
