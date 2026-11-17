@@ -237,6 +237,84 @@ def scaffold_alias(
     scaffold_docs(target=target, project_name=project_name, force=force)
 
 
+@app.command(name="plan-feature")
+def plan_feature_cmd(
+    feature: str = typer.Argument(..., help="Feature name or slug (e.g. repair_lab, pos_billing)"),
+    title: Optional[str] = typer.Option(None, "--title", "-t", help="Human-readable title for the feature"),
+    target: Path = typer.Option(Path("PLANNING"), "--dir", "-d", help="Target planning directory"),
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files"),
+) -> None:
+    """Scaffold complete 7-layer folder-wise architecture specification suite for a feature."""
+    from .feature_scaffolder import scaffold_feature_suite
+    h_title = title or feature.replace("_", " ").replace("-", " ").title()
+    res = scaffold_feature_suite(feature_slug=feature, feature_title=h_title, base_dir=target, overwrite=force)
+
+    console.print(Panel(
+        f"[bold green]Successfully scaffolded 7-Layer Architecture Suite for Feature: '{h_title}'[/bold green]\n"
+        f"Feature Slug: [cyan]{res['feature_slug']}[/cyan]\n"
+        f"Base Directory: [cyan]{target.as_posix()}[/cyan]\n"
+        f"Files Created: [green]{res['total_created']}[/green] | Skipped (Existing): [yellow]{res['total_skipped']}[/yellow]\n\n"
+        f"[bold]7 Layers Generated:[/bold]\n"
+        f"  1. [magenta]01_DOMAIN_AND_RULES/{res['feature_slug']}[/magenta] (Domain Models, FSM, Integer Paise)\n"
+        f"  2. [magenta]02_DATA_AND_STORAGE/{res['feature_slug']}[/magenta] (Room SQLite, Firestore, Migrations)\n"
+        f"  3. [magenta]03_ANDROID_COMPOSE/{res['feature_slug']}[/magenta] (Compose Screens, 5 UI States, Canvas)\n"
+        f"  4. [magenta]04_WEB_PORTAL/{res['feature_slug']}[/magenta] (Next.js Routes, Kanban Desk, Print Sheets)\n"
+        f"  5. [magenta]05_HARDWARE_PERIPHERALS/{res['feature_slug']}[/magenta] (Thermal Printers, CameraX Scanners)\n"
+        f"  6. [magenta]06_SECURITY_AND_TESTS/{res['feature_slug']}[/magenta] (RBAC Roles, Keystore, Test Suites)\n"
+        f"  7. [magenta]07_REPORTS_AND_PROFIT/{res['feature_slug']}[/magenta] (Stock Outward, P&L, Daily Closing)",
+        title="UniGov Sovereign Feature Planner",
+        border_style="green",
+    ))
+
+
+@app.command(name="scaffold-feature")
+def scaffold_feature_alias(
+    feature: str = typer.Argument(..., help="Feature name or slug (e.g. repair_lab, pos_billing)"),
+    title: Optional[str] = typer.Option(None, "--title", "-t", help="Human-readable title for the feature"),
+    target: Path = typer.Option(Path("PLANNING"), "--dir", "-d", help="Target planning directory"),
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files"),
+) -> None:
+    """Alias for 'unigov plan-feature'."""
+    plan_feature_cmd(feature=feature, title=title, target=target, force=force)
+
+
+@app.command(name="list-features")
+def list_features_cmd(
+    target: Path = typer.Option(Path("PLANNING"), "--dir", "-d", help="Target planning directory to scan"),
+) -> None:
+    """List all features and their 7-layer document coverage in the project."""
+    from .feature_scaffolder import list_project_features, FEATURE_LAYERS
+    features = list_project_features(target)
+    if not features:
+        console.print(f"[yellow]No feature documentation suites found in {target}/[/yellow]")
+        return
+
+    table = Table(title=f"UniGov Project Features ({target.as_posix()})", border_style="cyan")
+    table.add_column("Feature Slug", style="bold cyan", no_wrap=True)
+    table.add_column("Total Docs", justify="center", style="green")
+    for l in FEATURE_LAYERS:
+        short_name = l["folder"].split("_", 1)[1][:6]
+        table.add_column(short_name, justify="center")
+
+    for f in features:
+        row = [f["feature_slug"], str(f["total_docs"])]
+        for l in FEATURE_LAYERS:
+            count = f["layers"].get(l["folder"], 0)
+            cell = f"[green]{count}[/green]" if count > 0 else "[dim]-[/dim]"
+            row.append(cell)
+        table.add_row(*row)
+
+    console.print(table)
+
+
+@app.command(name="features")
+def features_alias(
+    target: Path = typer.Option(Path("PLANNING"), "--dir", "-d", help="Target planning directory to scan"),
+) -> None:
+    """Alias for 'unigov list-features'."""
+    list_features_cmd(target=target)
+
+
 @app.command(name="verify-spec")
 def verify_spec(
     docs_dir: Path = typer.Option(Path("docs"), "--dir", "-d", help="Path to documentation folder"),

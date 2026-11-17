@@ -646,3 +646,42 @@
 
 ---
 *Signed by: Shoeb Ahmad*
+
+
+## 📅 Date: 2026-11-17 — UniGov 7-Layer Hierarchical Feature Planner & Document Scaffolder
+
+### 🚀 Major Achievements:
+- **Architectural Specification Engine (`src/unigov/feature_scaffolder.py`)**:
+  * Implemented 7-Layer Hierarchical Feature Scaffolder enforcing structured, folder-wise documentation for Android & Web POS projects.
+  * Auto-generates the 7 canonical architectural layers:
+    1. `01_DOMAIN_AND_RULES/<feature_slug>/` (`01_domain_models.md`, `02_fsm_state_machine.md`, `03_financial_math.md` with Law ACC-001 Integer Paise invariant).
+    2. `02_DATA_AND_STORAGE/<feature_slug>/` (`01_room_sqlite_schema.md`, `02_firestore_contract.md`, `03_migrations_and_indexes.md` with client idempotency key invariant).
+    3. `03_ANDROID_COMPOSE/<feature_slug>/` (`01_screens_and_navigation.md`, `02_5_mandatory_ui_states.md` with 5-state UI invariant, `03_components_and_canvas.md`).
+    4. `04_WEB_PORTAL/<feature_slug>/` (`01_page_routes_and_drawers.md`, `02_kanban_desk_and_sla.md`, `03_print_sheets.md`).
+    5. `05_HARDWARE_PERIPHERALS/<feature_slug>/` (`01_printers_and_scanners.md` for ESC/POS thermal bytes & CameraX 15-digit Luhn scanner).
+    6. `06_SECURITY_AND_TESTS/<feature_slug>/` (`01_rbac_and_permissions.md` with zero-secret token invariant, `02_unit_and_integration_tests.md`).
+    7. `07_REPORTS_AND_PROFIT/<feature_slug>/` (`01_stock_deduction_and_pnl.md` for inventory outward, technician commission, and daily net profit).
+  * Automatically embeds machine-executable `<!-- UNIGOV_INVARIANT_START -->` JSON blocks compiled directly by UniGov state machine.
+- **CLI Commands Added (`src/unigov/cli.py`)**:
+  * `unigov plan-feature <feature_slug> [--title "..."] [--dir PLANNING]`: Scaffolds the complete 7-layer folder tree and 16 standardized specification files.
+  * `unigov scaffold-feature`: Alias for `plan-feature`.
+  * `unigov list-features [--dir PLANNING]`: Scans all layers and outputs a formatted status matrix showing document coverage across features.
+  * `unigov features`: Alias for `list-features`.
+- **Automated Test Suite Expansion**:
+  * Added `tests/test_feature_scaffolder.py` with 5 comprehensive tests (slug sanitization, 7-layer tree creation, machine invariant JSON validation, multi-feature directory scanning, and CLI command execution).
+  * Full test suite expanded to 49 tests; all 49/49 passed (100% green).
+
+### 🧪 Verification:
+- Unit Tests: `pytest tests/test_feature_scaffolder.py -v`: 5/5 PASSED in 1.19s.
+- Full Suite: `pytest tests/ -v`: 49/49 PASSED in 14.83s.
+- CLI Verification: `unigov plan-feature test_feature` and `unigov list-features` executed and validated.
+
+### 📌 Current State:
+- Version: v0.9.1
+- Feature Scaffolder: 100% Operational & Globally Available
+
+### 📝 Next Steps:
+- Apply `unigov plan-feature repair_parts` to scaffold the 7-layer documentation suite for UniRetail Spare Parts & P&L Reports Sync.
+
+---
+*Signed by: Shoeb Ahmad*
