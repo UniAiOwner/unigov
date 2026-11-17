@@ -51,7 +51,7 @@ def get_pill_status_line() -> str:
 def run_hud(
     tui: bool = False,
     port: int = 54321,
-    host: str = "127.0.0.1",
+    host: str = "0.0.0.0",
     open_browser: bool = True,
     daemon: bool = False,
 ) -> None:
@@ -106,10 +106,6 @@ def run_hud(
             webbrowser.open(url)
         except Exception:
             pass
-
-    if daemon:
-        console.print("[green]HUD server daemonized in background.[/green]")
-        return
 
     try:
         while True:

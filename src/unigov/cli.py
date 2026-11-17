@@ -575,7 +575,7 @@ def dashboard_cmd() -> None:
 def hud_cmd(
     tui: bool = typer.Option(False, "--tui", "-t", help="Launch terminal-native floating TUI"),
     port: int = typer.Option(54321, "--port", "-p", help="Server port (default: 54321)"),
-    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host address to bind"),
+    host: str = typer.Option("0.0.0.0", "--host", "-h", help="Host address to bind"),
     no_browser: bool = typer.Option(False, "--no-browser", help="Do not auto-open browser"),
     daemon: bool = typer.Option(False, "--daemon", "-d", help="Run server in background daemon mode"),
     pill: bool = typer.Option(False, "--pill", help="Output single-line dynamic island status for shell prompts"),

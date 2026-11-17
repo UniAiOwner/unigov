@@ -47,6 +47,24 @@ def get_git_branch(project_root: Optional[Path] = None) -> str:
     return "main"
 
 
+def _connect_snapshot_db(db_file: Path) -> sqlite3.Connection:
+    """Connects to SQLite with seamless fallback to immutable=1 for read-only sandboxes."""
+    try:
+        conn = sqlite3.connect(db_file, timeout=2.0)
+        conn.execute("SELECT 1 FROM project_vision LIMIT 1")
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("PRAGMA journal_mode = WAL;")
+        except Exception:
+            pass
+        return conn
+    except Exception:
+        uri = f"file:{db_file.resolve().as_posix()}?immutable=1"
+        conn = sqlite3.connect(uri, uri=True, timeout=2.0)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+
 def get_state_snapshot(project_root: Optional[Path] = None) -> Dict[str, Any]:
     """Generates an unalterable, comprehensive state snapshot directly from SQLite WAL."""
     gov_dir = resolve_gov_dir(project_root or Path.cwd())
@@ -64,9 +82,7 @@ def get_state_snapshot(project_root: Optional[Path] = None) -> Dict[str, Any]:
         }
 
     try:
-        conn = sqlite3.connect(db_file, timeout=2.0)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode = WAL;")
+        conn = _connect_snapshot_db(db_file)
 
         vision_row = conn.execute("SELECT project_name, core_objective FROM project_vision WHERE id = 1").fetchone()
         project_name = vision_row["project_name"] if vision_row else "UniGov Project"

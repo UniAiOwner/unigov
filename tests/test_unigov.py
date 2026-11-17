@@ -12,6 +12,8 @@ def isolated_workspace(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(db, "AG_DIR", tmp_path / ".antigravity")
     monkeypatch.setattr(db, "DB_PATH", tmp_path / ".antigravity" / "state.db")
+    monkeypatch.setattr(db, "GLOBAL_UNIGOV_DIR", tmp_path / ".global_unigov")
+    monkeypatch.setattr(db, "REGISTRY_FILE", tmp_path / ".global_unigov" / "registry.json")
     monkeypatch.setattr(ecosystem, "GLOBAL_AG_DIR", tmp_path / ".global_ag")
     monkeypatch.setattr(ecosystem, "ECOSYSTEM_DB_PATH", tmp_path / ".global_ag" / "ecosystem.db")
 
