@@ -22,6 +22,16 @@ def test_pill_command(tmp_path: Path):
     assert "UniGov" in res.output
 
 
+def test_hud_alias_command(tmp_path: Path):
+    res = runner.invoke(app, ["hud", "--dir", str(tmp_path)])
+    assert res.exit_code == 0
+    assert "UniGov" in res.output
+
+    res_pill = runner.invoke(app, ["hud", "--dir", str(tmp_path), "--pill"])
+    assert res_pill.exit_code == 0
+    assert "UniGov" in res_pill.output
+
+
 def test_check_file_invariants_suppress(tmp_path: Path):
     kt_file = tmp_path / "BadModel.kt"
     kt_file.write_text('@Suppress("UNCHECKED_CAST")\nclass BadModel', encoding="utf-8")

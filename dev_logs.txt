@@ -685,3 +685,33 @@
 
 ---
 *Signed by: Shoeb Ahmad*
+
+
+## 📅 Date: 2026-11-18 — Legacy Web HUD Removal & Native Session Companion Finalization
+
+### 🚀 Major Achievements:
+- **Legacy Web HUD Clean Purge (Anti-Khichdi Rule)**:
+  * Permanently deleted deprecated websocket web HUD directory (`src/unigov/hud/` containing `server.py`, `launcher.py`, `tui.py`, and `web/index.html`).
+  * Removed deprecated `tests/test_hud.py` which was causing proxy connection failures in cloud environments.
+  * Cleaned `websockets>=13.0` dependency from `pyproject.toml`, slimming runtime attack surface and package footprint.
+- **CLI & Shell Prompt Realignment (`src/unigov/cli.py`)**:
+  * Seamlessly remapped `unigov hud` to native, terminal-based `render_companion_card` and `render_dynamic_pill` as a backward-compatible alias.
+  * Updated `unigov hook` to use lightweight `unigov pill` directly for Bash and Zsh prompt hooks.
+- **Automated Test Suite Expansion (`tests/test_companion_sentinel.py`)**:
+  * Added `test_hud_alias_command` validating that `unigov hud` and `unigov hud --pill` render clean output without network or port overhead.
+  * Verified all companion and sentinel tests remain 100% green.
+
+### 🧪 Verification:
+- Codebase integrity: Zero dangling references to `unigov.hud` or websockets across `src/` and `tests/`.
+- CLI syntax: Verified `unigov companion`, `unigov pill`, and `unigov hud` alias.
+
+### 📌 Current State:
+- Version: v0.9.1
+- Status: Clean, Lightweight, Zero-Websocket Overhead
+- Repository: [UniAiOwner/unigov](https://github.com/UniAiOwner/unigov)
+
+### 📝 Next Steps:
+- Pull changes into Cloud Shell or secondary environments to ensure unified sync across all workspaces.
+
+---
+*Signed by: Shoeb Ahmad*
