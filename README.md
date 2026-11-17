@@ -5,7 +5,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-25%2F25%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-35%2F35%20passing-brightgreen.svg)]()
 [![Workspace](https://img.shields.io/badge/workspace-.unigov%20dual--zone-orange.svg)]()
 [![Architecture Drift](https://img.shields.io/badge/architecture%20drift-zero%20tolerance-red.svg)]()
 [![Maturity Tier](https://img.shields.io/badge/governance-Tier%204%20Production-purple.svg)]()
@@ -184,6 +184,12 @@ Maintains cross-repository contract synchronization across shared services at `~
 | `unigov worktree-create <task_id>` | Create isolated ephemeral Git worktree sandbox for task execution. |
 | `unigov worktree-merge <task_id>` | Fast-forward merge verified task worktree into current Git branch. |
 | `unigov worktree-cleanup <task_id>` | Clean up and remove an ephemeral task worktree. |
+| `unigov stress-test <task_id>` | Run Adversarial Invariant Breaker to attack task code with chaos edge-case tests. |
+| `unigov audit-migration <file>` | Audit Room/SQL migration for zero-downtime safety, missing defaults, and schema traps. |
+| `unigov adr --from-git` | Auto-synthesize Architecture Decision Record directly from Git diffs into `.unigov/adrs/`. |
+| `unigov init-ci` | Generate GitHub Actions Sovereign Gate workflow (`.github/workflows/unigov-gate.yml`). |
+| `unigov project [name]` | Show or switch the active project remembered by UniGov across all sessions. |
+| `unigov install-service` | Install and enable UniGov Continuous Watcher as a persistent Linux systemd user daemon. |
 
 *(Note: All commands also respond to legacy alias `antigravity-pm` for backward compatibility).*
 

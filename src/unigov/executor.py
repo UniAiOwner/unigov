@@ -301,7 +301,29 @@ def validate_code_syntax(file_path: Path, code: str) -> None:
         _check_balanced_brackets(file_path, code)
 
 
-def _apply_surgical_patches(patches) -> None:
+def is_test_file_path(file_path: str | Path) -> bool:
+    """Checks whether a path belongs to a test suite."""
+    norm = str(file_path).replace("\\", "/")
+    stem = Path(norm).stem
+    return (
+        norm.startswith("tests/")
+        or "/tests/" in norm
+        or "/test/" in norm
+        or stem.startswith("test_")
+        or stem.endswith("_test")
+        or stem.endswith("Test")
+    )
+
+
+def _apply_surgical_patches(patches, locked_test_cage: bool = False) -> None:
+    if locked_test_cage:
+        for patch in patches:
+            if is_test_file_path(patch.file_path):
+                raise PermissionError(
+                    f"LOCKED TEST CAGE VIOLATION: Patch on '{patch.file_path}' blocked! "
+                    "Tests are strictly write-locked during self-healing repair."
+                )
+
     staged_writes: dict[Path, str] = {}
 
     for patch in patches:
@@ -359,7 +381,7 @@ def _apply_surgical_patches(patches) -> None:
         console.print(f"[green]Patched:[/green] {path_obj.as_posix()}")
 
 
-def _preview_and_apply_plan(conn, task_id: str, plan: AgentExecutionPlan) -> bool:
+def _preview_and_apply_plan(conn, task_id: str, plan: AgentExecutionPlan, locked_test_cage: bool = False) -> bool:
     console.print(Panel(f"[bold]Agent Reasoning:[/bold]\n{plan.reasoning}", title=f"Surgical Proposal: {task_id}"))
 
     # Automated Quality Gate Review (Law-000, Secrets, ACC-001, Blast Radius)
@@ -389,7 +411,7 @@ def _preview_and_apply_plan(conn, task_id: str, plan: AgentExecutionPlan) -> boo
         console.print(f"[cyan]Git Checkpoint Created:[/cyan] {tag}")
 
     try:
-        _apply_surgical_patches(plan.patches)
+        _apply_surgical_patches(plan.patches, locked_test_cage=locked_test_cage)
     except Exception as exc:
         console.print(f"[bold red]Patch Validation Failed:[/bold red] {exc}")
         return False
@@ -404,6 +426,7 @@ def execute_task_with_agent(
     error_feedback: str = "",
     model: Optional[str] = None,
     provider: Optional[str] = None,
+    locked_test_cage: bool = False,
 ) -> bool:
     conn = get_db()
     task = conn.execute("SELECT * FROM tasks WHERE task_id = ?", (task_id,)).fetchone()
@@ -450,12 +473,13 @@ def execute_task_with_agent(
         model=model,
         provider=provider,
     )
-    return _preview_and_apply_plan(conn, task_id, plan)
+    return _preview_and_apply_plan(conn, task_id, plan, locked_test_cage=locked_test_cage)
 
 
 def verify_and_unlock(
     task_id: str,
     auto_fix: bool = False,
+    strict_cage: bool = True,
     max_retries: int = 2,
     model: Optional[str] = None,
     provider: Optional[str] = None,
@@ -501,7 +525,7 @@ def verify_and_unlock(
                     )
                 if auto_fix and attempt < max_retries:
                     console.print(f"[yellow]Triggering Self-Healing Fix ({attempt + 1}/{max_retries})...[/yellow]")
-                    if execute_task_with_agent(task_id, error_feedback=err_out, model=model, provider=provider):
+                    if execute_task_with_agent(task_id, error_feedback=err_out, model=model, provider=provider, locked_test_cage=strict_cage):
                         continue
                 conn.execute("UPDATE tasks SET status = 'FAILED' WHERE task_id = ?", (task_id,))
                 conn.commit()

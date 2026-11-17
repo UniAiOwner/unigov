@@ -97,3 +97,13 @@ class SpecVerificationReport(BaseModel):
     dimensions: List[DimensionCoverage]
     invariants_extracted: int
     conflicts: List[DocConflict] = Field(default_factory=list)
+
+
+class ADRSynthesis(BaseModel):
+    adr_id: str = Field(description="Unique ADR ID e.g. ADR-005-ROOM-MIGRATION")
+    module_tag: str = Field(description="Module or subsystem affected e.g. core:data:db")
+    title: str = Field(description="Title of decision")
+    decision: str = Field(description="Architectural decision made")
+    rationale: str = Field(description="Rationale and business/technical justification")
+    rejected_alternatives: str = Field(description="Alternatives considered and rejected")
+

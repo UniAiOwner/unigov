@@ -1,5 +1,5 @@
 {
-  "total_files": 19,
+  "total_files": 44,
   "subsystem_count": 3,
   "subsystems": {
     "M0-BASE-TEST": {
@@ -7,7 +7,7 @@
       "title": "Unit & Integration Test Verification Suites",
       "layer": "LAYER_4_SECURITY",
       "files": [
-        "tests/test_antigravity_pm.py"
+        "tests/test_unigov.py"
       ]
     },
     "M0-BASE-PLATFORM": {
@@ -15,23 +15,47 @@
       "title": "Application Foundation & Entry Points",
       "layer": "LAYER_1_DOMAIN",
       "files": [
-        "src/antigravity_pm/auditor.py",
-        "src/antigravity_pm/baseline.py",
-        "src/antigravity_pm/cli.py",
-        "src/antigravity_pm/db.py",
-        "src/antigravity_pm/drift.py",
-        "src/antigravity_pm/ecosystem.py",
-        "src/antigravity_pm/executor.py",
-        "src/antigravity_pm/ingest.py",
-        "src/antigravity_pm/introspect.py",
-        "src/antigravity_pm/invariants.py",
-        "src/antigravity_pm/llm.py",
-        "src/antigravity_pm/reconciler.py",
-        "src/antigravity_pm/reviewer.py",
-        "src/antigravity_pm/scaffolder.py",
-        "src/antigravity_pm/telemetry.py",
-        "src/antigravity_pm/tui.py",
-        "src/antigravity_pm/__init__.py"
+        "src/unigov/telemetry.py",
+        "src/unigov/executor.py",
+        "src/unigov/reconciler.py",
+        "src/unigov/drift.py",
+        "src/unigov/worktree.py",
+        "src/unigov/__init__.py",
+        "src/unigov/auditor.py",
+        "src/unigov/mcp.py",
+        "src/unigov/scaffolder.py",
+        "src/unigov/reviewer.py",
+        "src/unigov/invariants.py",
+        "src/unigov/context_bundler.py",
+        "src/unigov/baseline.py",
+        "src/unigov/ecosystem.py",
+        "src/unigov/db.py",
+        "src/unigov/blueprint.py",
+        "src/unigov/tia.py",
+        "src/unigov/llm.py",
+        "src/unigov/introspect.py",
+        "src/unigov/constants.py",
+        "src/unigov/tui.py",
+        "src/unigov/ingest.py",
+        "src/unigov/cli.py",
+        "src/antigravity_pm/__init__.py",
+        "src/unigov/antigravity_pm/telemetry.py",
+        "src/unigov/antigravity_pm/executor.py",
+        "src/unigov/antigravity_pm/reconciler.py",
+        "src/unigov/antigravity_pm/drift.py",
+        "src/unigov/antigravity_pm/__init__.py",
+        "src/unigov/antigravity_pm/auditor.py",
+        "src/unigov/antigravity_pm/scaffolder.py",
+        "src/unigov/antigravity_pm/reviewer.py",
+        "src/unigov/antigravity_pm/invariants.py",
+        "src/unigov/antigravity_pm/baseline.py",
+        "src/unigov/antigravity_pm/ecosystem.py",
+        "src/unigov/antigravity_pm/db.py",
+        "src/unigov/antigravity_pm/llm.py",
+        "src/unigov/antigravity_pm/introspect.py",
+        "src/unigov/antigravity_pm/tui.py",
+        "src/unigov/antigravity_pm/ingest.py",
+        "src/unigov/antigravity_pm/cli.py"
       ]
     },
     "M0-BASE-DOM": {
@@ -39,7 +63,8 @@
       "title": "Domain Core Models, Math & Rules",
       "layer": "LAYER_1_DOMAIN",
       "files": [
-        "src/antigravity_pm/models.py"
+        "src/unigov/models.py",
+        "src/unigov/antigravity_pm/models.py"
       ]
     }
   }

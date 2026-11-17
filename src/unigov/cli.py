@@ -442,17 +442,28 @@ def contract_ack_cmd(contract_id: str = typer.Argument(..., help="Upstream contr
 
 @app.command()
 def adr(
-    adr_id: str,
-    module: str,
-    decision: str,
-    rationale: str,
-    rejected: str = typer.Option("", help="Alternatives considered and rejected"),
+    adr_id: Optional[str] = typer.Argument(None, help="ADR ID e.g. ADR-001"),
+    module: Optional[str] = typer.Option(None, "--module", "-m", help="Subsystem module tag"),
+    decision: Optional[str] = typer.Option(None, "--decision", "-d", help="Decision summary"),
+    rationale: Optional[str] = typer.Option(None, "--rationale", "-r", help="Technical rationale"),
+    rejected: str = typer.Option("", "--rejected", help="Alternatives considered and rejected"),
+    from_git: bool = typer.Option(False, "--from-git", "-g", help="Auto-synthesize ADR directly from Git diff"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Auto-approve without prompt"),
 ) -> None:
-    """Record a finalized Architecture Decision Record (ADR)."""
+    """Record an Architecture Decision Record (ADR), or auto-synthesize from Git diff via --from-git."""
+    if from_git:
+        from .adr import run_reverse_adr
+        run_reverse_adr(yes=yes)
+        return
+
+    if not adr_id or not module or not decision or not rationale:
+        console.print("[bold red]Error:[/bold red] adr_id, --module, --decision, and --rationale are required unless using --from-git.")
+        raise typer.Exit(1)
+
     conn = get_db()
     with conn:
         conn.execute(
-            "INSERT OR REPLACE INTO adr_ledger (adr_id, module_tag, decision, rationale, rejected_alternatives) VALUES (?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO adr_ledger (adr_id, module_tag, decision, rationale, rejected_alternatives, status) VALUES (?, ?, ?, ?, ?, 'FINALIZED')",
             (adr_id, module, decision, rationale, rejected),
         )
     console.print(f"[bold green]Recorded {adr_id}[/bold green] under module '{module}'.")
@@ -707,6 +718,85 @@ WantedBy=default.target
         console.print("[cyan]Check status anytime:[/cyan] systemctl --user status unigov-watcher.service")
     except Exception as exc:
         console.print(f"[yellow]Warning enabling systemd service:[/yellow] {exc}")
+
+
+@app.command(name="stress-test")
+def stress_test_cmd(
+    task_id: str = typer.Argument(..., help="Task ID to attack with adversarial tests"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="LLM model override"),
+    provider: Optional[str] = typer.Option(None, "--provider", "-p", help="Provider override (gemini|ollama)"),
+) -> None:
+    """Execute Adversarial Invariant Breaker on a task to detect edge-case flaws before release."""
+    from .stress import execute_stress_test
+    success = execute_stress_test(task_id, model=model, provider=provider)
+    if not success:
+        raise typer.Exit(1)
+
+
+@app.command(name="audit-migration")
+def audit_migration_cmd(
+    migration_file: Path = typer.Argument(..., help="Path to Room or SQL migration file to audit"),
+) -> None:
+    """Audit Room or SQL migration for zero-downtime safety, missing defaults, and schema traps."""
+    from .migration_guard import execute_migration_audit
+    is_safe = execute_migration_audit(migration_file)
+    if not is_safe:
+        raise typer.Exit(1)
+
+
+@app.command(name="init-ci")
+def init_ci_cmd(
+    target_path: Path = typer.Option(Path(".github/workflows/unigov-gate.yml"), "--path", "-p", help="Workflow path"),
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing workflow file"),
+) -> None:
+    """Generate GitHub Actions Sovereign Governance Gate workflow to enforce constitutional rules on PRs."""
+    if target_path.exists() and not force:
+        console.print(f"[yellow]Workflow already exists at '{target_path}'. Use --force to overwrite.[/yellow]")
+        return
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    workflow_yaml = """name: UniGov Sovereign Governance Gate
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+
+jobs:
+  governance-gate:
+    name: Constitutional Architecture & Drift Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install UniGov Engine
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: 1. Drift & Secret Firewall
+        run: |
+          unigov check-drift --skip-llm
+
+      - name: 2. Specification & Invariants Verification
+        run: |
+          unigov verify-spec
+
+      - name: 3. Offline Health & Orphan File Audit
+        run: |
+          unigov audit
+"""
+    target_path.write_text(workflow_yaml, encoding="utf-8")
+    console.print(f"[bold green]Generated GitHub Actions Sovereign Gate:[/bold green] `{target_path}`")
 
 
 if __name__ == "__main__":

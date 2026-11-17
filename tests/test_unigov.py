@@ -868,6 +868,143 @@ def test_project_memory_and_registry(isolated_workspace, monkeypatch):
     assert resolved.exists()
 
 
+def test_adversarial_stress(isolated_workspace):
+    ws, conn = isolated_workspace
+    from unigov.stress import generate_adversarial_tests, execute_stress_test
+
+    # Create dummy target file
+    src_file = ws / "src" / "pricing.py"
+    src_file.parent.mkdir(parents=True, exist_ok=True)
+    src_file.write_text("def calc_total(paise: int, qty: int) -> int:\n    return paise * qty\n")
+
+    # Insert task
+    with conn:
+        conn.execute("""
+            INSERT INTO tasks (task_id, level, title, description, target_files_json, status)
+            VALUES ('T-STRESS-01', 'TASK', 'Pricing Engine', 'Implement pricing math with integer paise', ?, 'READY')
+        """, (json.dumps(["src/pricing.py"]),))
+
+    # Test report generation
+    report = generate_adversarial_tests(conn, "T-STRESS-01", project_root=ws)
+    assert report.task_id == "T-STRESS-01"
+    assert len(report.attacks) == 3
+
+    # Test execution
+    success = execute_stress_test("T-STRESS-01", project_root=ws)
+    assert success is True
+    assert (ws / ".unigov" / "stress_tests" / "stress_t-stress-01.py").exists()
+
+
+def test_migration_guard(isolated_workspace):
+    ws, _ = isolated_workspace
+    from unigov.migration_guard import audit_migration_content, audit_migration_file, execute_migration_audit
+
+    # 1. Unsafe migration with fatal NOT NULL without DEFAULT
+    unsafe_sql = """
+    ALTER TABLE users ADD COLUMN age INTEGER NOT NULL;
+    ALTER TABLE invoices ADD COLUMN tax_amount REAL;
+    DROP TABLE legacy_records;
+    """
+    report = audit_migration_content(unsafe_sql, "unsafe.sql")
+    assert report.is_safe is False
+    assert len(report.violations) == 3
+    violation_types = [v.violation_type for v in report.violations]
+    assert "NOT_NULL_NO_DEFAULT" in violation_types
+    assert "FLOAT_MONEY_MATH" in violation_types
+    assert "DESTRUCTIVE_DROP" in violation_types
+
+    # 2. Safe migration obeying zero-downtime rules
+    safe_sql = """
+    CREATE TABLE IF NOT EXISTS product_inventory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        total_paise INTEGER NOT NULL DEFAULT 0
+    );
+    ALTER TABLE users ADD COLUMN status_code INTEGER NOT NULL DEFAULT 1;
+    """
+    safe_report = audit_migration_content(safe_sql, "safe.sql")
+    assert safe_report.is_safe is True
+    assert len(safe_report.violations) == 0
+
+    # 3. Test CLI execution on physical file
+    safe_file = ws / "migration_v26.sql"
+    safe_file.write_text(safe_sql, encoding="utf-8")
+    assert execute_migration_audit(safe_file) is True
+
+
+def test_locked_test_cage(isolated_workspace):
+    ws, _ = isolated_workspace
+    from unigov.executor import _apply_surgical_patches, is_test_file_path
+    from unigov.models import FilePatch, SearchReplaceBlock
+
+    assert is_test_file_path("tests/test_app.py") is True
+    assert is_test_file_path("app/src/test/MoneyTest.kt") is True
+    assert is_test_file_path("src/domain/Money.kt") is False
+
+    # Attempt patch on test file with locked cage
+    malicious_test_patch = FilePatch(
+        file_path="tests/test_app.py",
+        is_new_file=False,
+        edits=[SearchReplaceBlock(search="assert x == 10", replace="assert True")],
+        explanation="Weaken assertion to bypass build",
+    )
+
+    with pytest.raises(PermissionError) as exc_info:
+        _apply_surgical_patches([malicious_test_patch], locked_test_cage=True)
+
+    assert "LOCKED TEST CAGE VIOLATION" in str(exc_info.value)
+
+
+def test_reverse_adr(isolated_workspace):
+    ws, conn = isolated_workspace
+    from unigov.adr import synthesize_adr_from_diff, persist_adr, run_reverse_adr
+    from unigov.models import ADRSynthesis
+
+    sample_diff = """
+diff --git a/app/src/main/domain/Money.kt b/app/src/main/domain/Money.kt
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/app/src/main/domain/Money.kt
+@@ -0,0 +1,5 @@
++data class Money(val paise: Long) {
++    // Law ACC-001 Integer Paise enforcement
++}
+"""
+    # 1. Test synthesis
+    adr = synthesize_adr_from_diff(sample_diff, conn)
+    assert adr.adr_id.startswith("ADR-")
+    assert "Money" in adr.title or "app" in adr.module_tag or "core" in adr.module_tag
+
+    # 2. Test persistence
+    md_path = persist_adr(conn, adr, project_root=ws)
+    assert md_path.exists()
+    assert adr.adr_id in md_path.name
+    row = conn.execute("SELECT * FROM adr_ledger WHERE adr_id = ?", (adr.adr_id,)).fetchone()
+    assert row is not None
+    assert row["status"] == "FINALIZED"
+
+
+def test_init_ci(isolated_workspace):
+    ws, _ = isolated_workspace
+    from unigov.cli import init_ci_cmd
+
+    wf_file = ws / ".github" / "workflows" / "unigov-gate.yml"
+    assert not wf_file.exists()
+
+    init_ci_cmd(target_path=wf_file, force=False)
+    assert wf_file.exists()
+    content = wf_file.read_text(encoding="utf-8")
+    assert "name: UniGov Sovereign Governance Gate" in content
+    assert "unigov check-drift" in content
+    assert "unigov verify-spec" in content
+    assert "unigov audit" in content
+
+
+
+
+
+
+
 
 
 
