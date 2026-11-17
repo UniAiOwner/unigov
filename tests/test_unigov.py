@@ -601,5 +601,131 @@ def test_purge_ghost_files_and_reconcile_orphans(isolated_workspace):
     assert "OrphanModel.kt" in dom_row["target_files_json"]
 
 
+def test_dynamic_version():
+    import unigov
+    assert unigov.__version__ == "0.7.0"
+
+
+def test_worktree_sandboxed_lifecycle(isolated_workspace):
+    ws, _ = isolated_workspace
+    from unigov.worktree import is_git_repo, create_task_worktree, merge_task_worktree, cleanup_task_worktree
+
+    # Initial commit to anchor HEAD
+    dummy = ws / "README.md"
+    dummy.write_text("# Test Repo")
+    subprocess.run(["git", "add", "README.md"], cwd=ws, check=True)
+    subprocess.run(["git", "commit", "-m", "chore: initial commit"], cwd=ws, check=True)
+
+    assert is_git_repo(ws) is True
+
+    # 1. Create worktree
+    task_id = "M1-DB-01"
+    wt_path = create_task_worktree(ws, task_id)
+    assert wt_path.exists()
+    assert (wt_path / ".git").exists()
+
+    # 2. Modify file inside worktree and commit
+    new_code = wt_path / "hello.txt"
+    new_code.write_text("hello from sandbox")
+    subprocess.run(["git", "add", "hello.txt"], cwd=wt_path, check=True)
+    subprocess.run(["git", "commit", "-m", "feat: sandbox work"], cwd=wt_path, check=True)
+
+    # 3. Merge worktree back into main branch
+    merged = merge_task_worktree(ws, task_id)
+    assert merged is True
+    assert (ws / "hello.txt").exists()
+    assert (ws / "hello.txt").read_text() == "hello from sandbox"
+
+    # 4. Ensure worktree directory is cleaned up
+    assert not wt_path.exists()
+
+
+def test_context_bundler_one_hop(isolated_workspace):
+    ws, _ = isolated_workspace
+    from unigov.context_bundler import bundle_one_hop_context
+
+    src_dir = ws / "src"
+    src_dir.mkdir(parents=True, exist_ok=True)
+
+    # Dependency file
+    models_file = src_dir / "models.py"
+    models_file.write_text("""
+class Invoice:
+    \"\"\"Invoice data class.\"\"\"
+    invoice_id: str
+    total_paise: int
+
+    def calculate_tax(amount): ...
+""")
+
+    # Target file importing dependency
+    service_file = src_dir / "service.py"
+    service_file.write_text("""
+from .models import Invoice
+
+def create_invoice():
+    return Invoice()
+""")
+
+    bundled = bundle_one_hop_context(ws, ["src/service.py"])
+    assert "### 🔗 1-HOP DEPENDENCY INTERFACES & CONTRACTS" in bundled
+    assert "class Invoice:" in bundled
+    assert "total_paise: ..." in bundled or "total_paise" in bundled
+
+
+def test_smart_test_impact_analysis(isolated_workspace):
+    ws, _ = isolated_workspace
+    from unigov.tia import find_impacted_tests, get_targeted_verification_command
+
+    src_file = ws / "src" / "math_utils.py"
+    src_file.parent.mkdir(parents=True, exist_ok=True)
+    src_file.write_text("def add(a, b): return a + b")
+
+    test_file = ws / "tests" / "test_math_utils.py"
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("def test_add(): assert True")
+
+    impacted = find_impacted_tests(ws, ["src/math_utils.py"])
+    assert len(impacted) == 1
+    assert "test_math_utils.py" in str(impacted[0])
+
+    cmd = get_targeted_verification_command(ws, ["src/math_utils.py"])
+    assert "pytest -v" in cmd
+    assert "test_math_utils.py" in cmd
+
+
+def test_mcp_server_protocol(isolated_workspace):
+    ws, conn = isolated_workspace
+    from unigov.mcp import dispatch_mcp_request
+
+    # 1. Test initialize
+    init_req = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
+    init_resp = dispatch_mcp_request(conn, init_req)
+    assert init_resp["id"] == 1
+    assert init_resp["result"]["serverInfo"]["name"] == "unigov-mcp-server"
+
+    # 2. Test tools/list
+    list_req = {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
+    list_resp = dispatch_mcp_request(conn, list_req)
+    assert list_resp["id"] == 2
+    tool_names = [t["name"] for t in list_resp["result"]["tools"]]
+    assert "unigov_status" in tool_names
+    assert "unigov_get_ready_tasks" in tool_names
+    assert "unigov_get_invariants" in tool_names
+
+    # 3. Test tools/call unigov_status
+    call_req = {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/call",
+        "params": {"name": "unigov_status", "arguments": {}},
+    }
+    call_resp = dispatch_mcp_request(conn, call_req)
+    assert call_resp["id"] == 3
+    content = json.loads(call_resp["result"]["content"][0]["text"])
+    assert content["project_name"] == "UniRetail"
+
+
+
 
 

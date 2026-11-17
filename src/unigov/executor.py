@@ -419,6 +419,9 @@ def execute_task_with_agent(
         for f in target_files
     }
 
+    from .context_bundler import bundle_one_hop_context
+    one_hop_context = bundle_one_hop_context(Path("."), target_files)
+
     feedback_section = f"\nPREVIOUS VERIFICATION FAILURE LOG (FIX THIS):\n{error_feedback}\n" if error_feedback else ""
     prompt = f"""
     Implement or fix the following atomic software engineering task while obeying all Locked Constraints.
@@ -434,6 +437,7 @@ def execute_task_with_agent(
     {feedback_section}
     CURRENT FILE STATES:
     {json.dumps(current_files)}
+    {one_hop_context}
     """
 
     console.print(f"[cyan]Generating surgical patches for {task_id}...[/cyan]")
@@ -475,9 +479,17 @@ def verify_and_unlock(
             conn.commit()
             raise typer.Exit(1)
 
-        if task["verify_cmd"]:
-            console.print(f"[cyan]Running Gate 2 (Attempt {attempt + 1}):[/cyan] {task['verify_cmd']}")
-            proc = subprocess.run(task["verify_cmd"], shell=True, capture_output=True, text=True)
+        verify_cmd = task["verify_cmd"]
+        if verify_cmd:
+            from .tia import get_targeted_verification_command
+            targeted_cmd = get_targeted_verification_command(Path("."), target_files, fallback_cmd=verify_cmd)
+            exec_cmd = targeted_cmd if targeted_cmd else verify_cmd
+            if exec_cmd != verify_cmd:
+                console.print(f"[cyan]Smart TIA (Attempt {attempt + 1}):[/cyan] {exec_cmd}")
+            else:
+                console.print(f"[cyan]Running Gate 2 (Attempt {attempt + 1}):[/cyan] {exec_cmd}")
+
+            proc = subprocess.run(exec_cmd, shell=True, capture_output=True, text=True)
             if proc.returncode != 0:
                 full_raw = ((proc.stderr or "") + "\n" + (proc.stdout or "")).strip()
                 err_out = extract_actionable_error_log(full_raw)

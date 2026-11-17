@@ -10,7 +10,7 @@ from unigov import *
 for attr in (
     "db", "cli", "executor", "ingest", "models", "reconciler", "reviewer",
     "scaffolder", "invariants", "baseline", "introspect", "auditor", "drift",
-    "ecosystem", "llm", "telemetry", "tui"
+    "ecosystem", "llm", "telemetry", "tui", "worktree", "context_bundler", "tia", "mcp"
 ):
     try:
         mod = getattr(unigov, attr, None)

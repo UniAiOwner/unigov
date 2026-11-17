@@ -571,5 +571,50 @@ def self_upgrade_cmd(
     run_self_upgrade(module_target=module, interactive=not yes)
 
 
+@app.command(name="mcp-serve")
+def mcp_serve_cmd() -> None:
+    """Launch native JSON-RPC Model Context Protocol (MCP) server over stdio."""
+    from .mcp import run_mcp_server
+    run_mcp_server()
+
+
+@app.command(name="worktree-create")
+def worktree_create_cmd(
+    task_id: str = typer.Argument(..., help="Task ID to isolate in ephemeral worktree"),
+) -> None:
+    """Create an isolated ephemeral Git worktree for executing a task."""
+    from .worktree import create_task_worktree
+    try:
+        wt = create_task_worktree(Path("."), task_id)
+        console.print(f"[bold green]Ephemeral worktree created:[/bold green] {wt}")
+    except Exception as exc:
+        console.print(f"[bold red]Worktree error:[/bold red] {exc}")
+        raise typer.Exit(1)
+
+
+@app.command(name="worktree-merge")
+def worktree_merge_cmd(
+    task_id: str = typer.Argument(..., help="Task ID worktree to merge into current branch"),
+) -> None:
+    """Merge an isolated task worktree into current branch after verification."""
+    from .worktree import merge_task_worktree
+    success = merge_task_worktree(Path("."), task_id)
+    if success:
+        console.print(f"[bold green]Successfully merged worktree for task {task_id}![/bold green]")
+    else:
+        console.print(f"[bold red]Failed to merge worktree for task {task_id}.[/bold red]")
+        raise typer.Exit(1)
+
+
+@app.command(name="worktree-cleanup")
+def worktree_cleanup_cmd(
+    task_id: str = typer.Argument(..., help="Task ID worktree to clean up"),
+) -> None:
+    """Clean up and remove an ephemeral task worktree."""
+    from .worktree import cleanup_task_worktree
+    cleanup_task_worktree(Path("."), task_id)
+    console.print(f"[yellow]Cleaned up worktree for task {task_id}.[/yellow]")
+
+
 if __name__ == "__main__":
     app()

@@ -5,7 +5,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-18%2F18%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-25%2F25%20passing-brightgreen.svg)]()
 [![Workspace](https://img.shields.io/badge/workspace-.unigov%20dual--zone-orange.svg)]()
 [![Architecture Drift](https://img.shields.io/badge/architecture%20drift-zero%20tolerance-red.svg)]()
 [![Maturity Tier](https://img.shields.io/badge/governance-Tier%204%20Production-purple.svg)]()
@@ -127,6 +127,22 @@ Maintains cross-repository contract synchronization across shared services at `~
 - **Subscribe:** Downstream consumer projects bind to versioned contracts.
 - **Alert & Acknowledge:** Alerts consumers when upstream contracts change, requiring explicit `contract-ack`.
 
+### 9. 🌲 Ephemeral Git Worktree Sandboxing (`unigov worktree-create`)
+- Isolates coding agent execution inside `.unigov/worktrees/<task_id>` on a dedicated git branch (`unigov/task/<task_id>`).
+- Guarantees developer working directory remains 100% clean. Patches, compilers, and self-healing test loops run in sandbox; fast-forward merges into main branch only upon 100% green verification.
+
+### 10. 🔗 1-Hop AST Context Bundler 2.0 (`context_bundler.py`)
+- Automatically traverses imported local symbols across Python AST, Kotlin data classes, and TypeScript interfaces.
+- Extracts interface signatures and type contracts without implementation bodies, giving LLMs exact dependency context with zero noise.
+
+### 11. 🎯 Smart Test Impact Analysis (TIA) (`tia.py`)
+- Maps modified source code files directly to their respective unit and integration test suites (`test_<module>.py`, `<Entity>Test.kt`, `<Component>.test.tsx`).
+- Executes focused test runs during task verification (2s feedback) while reserving full regression runs for milestone phase locks.
+
+### 12. 🔌 Native Model Context Protocol (MCP) Server (`unigov mcp-serve`)
+- Exposes UniGov's deterministic state machine, ready tasks, invariants, and drift audit directly over stdio JSON-RPC 2.0.
+- Enables native integration with AI coding assistants (Antigravity, Claude Code, Cursor) without shell parsing overhead.
+
 ---
 
 ## 🛠️ Complete CLI Command Reference
@@ -164,6 +180,10 @@ Maintains cross-repository contract synchronization across shared services at `~
 | `unigov ui` (or `dashboard`) | Launch interactive terminal TUI dashboard for navigating project tasks. |
 | `unigov self-audit` | Run metacognitive self-audit to inspect capabilities and diagnose bottlenecks. |
 | `unigov self-upgrade` | Execute sandboxed self-upgrade on UniGov with human approval gate (`[Y/n]`). |
+| `unigov mcp-serve` | Launch native JSON-RPC Model Context Protocol (MCP) server over stdio for AI IDEs. |
+| `unigov worktree-create <task_id>` | Create isolated ephemeral Git worktree sandbox for task execution. |
+| `unigov worktree-merge <task_id>` | Fast-forward merge verified task worktree into current Git branch. |
+| `unigov worktree-cleanup <task_id>` | Clean up and remove an ephemeral task worktree. |
 
 *(Note: All commands also respond to legacy alias `antigravity-pm` for backward compatibility).*
 

@@ -1,2 +1,7 @@
-"""Antigravity Autonomous Project Manager & Governance Engine."""
-__version__ = "0.2.0"
+"""UniGov Sovereign Autonomous Project Governance Engine & Deterministic State Machine."""
+
+try:
+    from importlib.metadata import version
+    __version__ = version("unigov")
+except Exception:
+    __version__ = "0.7.0"

@@ -48,8 +48,9 @@ def introspect_unigov_self() -> dict:
             mod_stats[m.name] = loc
         except Exception:
             pass
+    from . import __version__
     return {
-        "version": "v0.5.0",
+        "version": f"v{__version__}",
         "module_count": len(modules),
         "total_loc": total_loc,
         "modules": mod_stats,

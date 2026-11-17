@@ -203,9 +203,10 @@ def find_candidate_files(root_dir: Path, target_files: List[str], task_title: st
 
     scored.sort(key=lambda x: x[0], reverse=True)
     final_candidates = []
+    out_seen = set()
     for _, path in scored:
-        if path.resolve() not in seen:
-            seen.add(path.resolve())
+        if path.resolve() not in out_seen:
+            out_seen.add(path.resolve())
             final_candidates.append(path)
         if len(final_candidates) >= 5:
             break
