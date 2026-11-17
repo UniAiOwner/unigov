@@ -17,6 +17,8 @@ from .telemetry import print_cost_summary
 from .auditor import run_offline_audit
 from .ecosystem import publish_contract, subscribe_contract, acknowledge_contract, check_ecosystem_sync
 from .tui import launch_dashboard
+from .companion import render_companion_card, render_dynamic_pill
+from .sentinel import start_sentinel_monitor
 
 app = typer.Typer(help="UniGov: Sovereign Autonomous Project Governance Engine & Deterministic State Machine", no_args_is_help=True)
 console = Console()
@@ -494,7 +496,7 @@ def watch_cmd(
     daemon: bool = typer.Option(False, "--daemon", "-d", help="Run quietly in daemon mode logging to .antigravity/watch.log"),
     max_iterations: Optional[int] = typer.Option(None, "--max-iterations", "-n", help="Exit after N cycles (useful for testing)"),
 ) -> None:
-    """Run continuous governance monitor: inspects contracts, drift, backups & state changes."""
+    """Run continuous governance monitor: inotify filesystem sentinel, contracts, drift & state changes."""
     import time
     conn = get_db()
     vision = conn.execute("SELECT * FROM project_vision WHERE id = 1").fetchone()
@@ -502,61 +504,94 @@ def watch_cmd(
     active_gov_dir = resolve_gov_dir()
     log_file = active_gov_dir / "watch.log"
 
-    console.print(f"[bold green]Starting UniGov Continuous Watcher for '{project_name}' (Interval: {interval}s)...[/bold green]")
+    console.print(f"[bold green]Starting UniGov Continuous Inotify Watchdog for '{project_name}'...[/bold green]")
     if daemon:
         console.print(f"[cyan]Daemon mode active. Logging to {log_file}[/cyan]")
 
+    # Start inotify filesystem watchdog observer
+    observer = None
+    try:
+        observer = start_sentinel_monitor(project_root=Path.cwd(), run_forever=False)
+        if observer:
+            console.print("[green]✔ Inotify Filesystem Sentinel & Invariant Guardian active.[/green]")
+    except Exception as e:
+        console.print(f"[yellow]Watchdog observer warning: {e}[/yellow]")
+
     cycle = 0
-    while True:
-        cycle += 1
-        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        alerts = []
+    try:
+        while True:
+            cycle += 1
+            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            alerts = []
 
-        # 1. Contract sync check
-        try:
-            contract_alerts = check_ecosystem_sync(project_name)
-            if contract_alerts:
-                alerts.extend(contract_alerts)
-        except Exception:
-            pass
-
-        # 2. Staged secret check
-        try:
-            diff_proc = subprocess.run(["git", "diff", "--cached"], capture_output=True, text=True)
-            diff_text = diff_proc.stdout
-            if diff_text:
-                for sig in ["AIzaSy", "BEGIN PRIVATE KEY", "sk-proj-", "ghp_"]:
-                    if sig in diff_text:
-                        alerts.append(f"SECURITY ALERT: Staged git diff contains potential secret signature '{sig}'")
-        except Exception:
-            pass
-
-        # 3. Periodic backup every 20 cycles
-        if cycle % 20 == 1:
+            # 1. Contract sync check
             try:
-                from .auditor import backup_state_db
-                backup_state_db()
+                contract_alerts = check_ecosystem_sync(project_name)
+                if contract_alerts:
+                    alerts.extend(contract_alerts)
             except Exception:
                 pass
 
-        status_line = f"[{ts}] UniGov Watcher [Cycle #{cycle}]: Status: {'ALERT (' + str(len(alerts)) + ' issues)' if alerts else 'HEALTHY (Clean)'}"
-        if daemon:
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(status_line + "\n")
-                for a in alerts:
-                    f.write(f"   ! {a}\n")
-        else:
-            if alerts:
-                console.print(f"[bold red]{status_line}[/bold red]")
-                for a in alerts:
-                    console.print(f"   [red]! {a}[/red]")
+            # 2. Staged secret check
+            try:
+                diff_proc = subprocess.run(["git", "diff", "--cached"], capture_output=True, text=True)
+                diff_text = diff_proc.stdout
+                if diff_text:
+                    for sig in ["AIzaSy", "BEGIN PRIVATE KEY", "sk-proj-", "ghp_"]:
+                        if sig in diff_text:
+                            alerts.append(f"SECURITY ALERT: Staged git diff contains potential secret signature '{sig}'")
+            except Exception:
+                pass
+
+            # 3. Periodic backup every 20 cycles
+            if cycle % 20 == 1:
+                try:
+                    from .auditor import backup_state_db
+                    backup_state_db()
+                except Exception:
+                    pass
+
+            status_line = f"[{ts}] UniGov Watcher [Cycle #{cycle}]: Status: {'ALERT (' + str(len(alerts)) + ' issues)' if alerts else 'HEALTHY (Clean)'}"
+            if daemon:
+                with open(log_file, "a", encoding="utf-8") as f:
+                    f.write(status_line + "\n")
+                    for a in alerts:
+                        f.write(f"   ! {a}\n")
             else:
-                console.print(f"[dim]{status_line}[/dim]")
+                if alerts:
+                    console.print(f"[bold red]{status_line}[/bold red]")
+                    for a in alerts:
+                        console.print(f"   [red]! {a}[/red]")
+                else:
+                    console.print(f"[dim]{status_line}[/dim]")
 
-        if max_iterations is not None and cycle >= max_iterations:
-            break
+            if max_iterations is not None and cycle >= max_iterations:
+                break
 
-        time.sleep(interval)
+            time.sleep(interval)
+    finally:
+        if observer:
+            try:
+                observer.stop()
+                observer.join()
+            except Exception:
+                pass
+
+
+@app.command(name="companion")
+def companion_cmd(
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Target project directory")
+) -> None:
+    """Render the high-density terminal companion HUD card directly in session (<= 76 cols)."""
+    render_companion_card(dir)
+
+
+@app.command(name="pill")
+def pill_cmd(
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Target project directory")
+) -> None:
+    """Render single-line dynamic island status for terminal prompt or status lines."""
+    console.print(render_dynamic_pill(dir))
 
 
 @app.command(name="ui")

@@ -138,17 +138,21 @@ def get_state_snapshot(project_root: Optional[Path] = None) -> Dict[str, Any]:
                 "progress_pct": round((completed / total) * 100, 1) if total else 100.0,
             })
 
-        # Find active task
-        for t in tasks:
+        # Find active task: prioritize leaf tasks currently in progress or ready in the active sprint
+        active_task = None
+        leaf_tasks = [t for t in tasks if t["level"] == "TASK"]
+        for t in reversed(leaf_tasks):
             if t["status"] == "IN_PROGRESS":
                 active_task = t
                 break
         if not active_task:
-            for t in tasks:
+            for t in reversed(leaf_tasks):
                 if t["status"] == "READY":
                     active_task = t
                     break
-        if not active_task and tasks:
+        if not active_task and leaf_tasks:
+            active_task = leaf_tasks[-1]
+        elif not active_task and tasks:
             active_task = tasks[-1]
 
         # Invariants
