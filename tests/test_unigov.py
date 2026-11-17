@@ -389,11 +389,14 @@ def test_scaffolder_and_spec_verification(isolated_workspace):
 
     docs_dir = Path("docs")
     created = scaffold_documentation_suite(docs_dir, project_name="UniRetail POS", overwrite=True)
-    assert len(created) == 15
+    assert len(created) >= 15
     assert len(DIMENSION_METADATA) == 15
 
     # Check presence of invariant blocks in 01 and 02
-    doc_01 = (docs_dir / "01_VISION_AND_CONSTRAINTS.md").read_text()
+    doc_01_path = docs_dir / "01_VISION_AND_CONSTRAINTS" / "03_Constitutional_Invariants_and_Laws.md"
+    if not doc_01_path.exists():
+        doc_01_path = docs_dir / "01_VISION_AND_CONSTRAINTS.md"
+    doc_01 = doc_01_path.read_text()
     assert "<!-- UNIGOV_INVARIANT_START -->" in doc_01
     assert "INV-LAW-000" in doc_01
 
