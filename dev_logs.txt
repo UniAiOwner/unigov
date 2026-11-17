@@ -574,3 +574,39 @@
 
 ---
 *Signed by: Shoeb Ahmad*
+
+
+## 📅 Date: 2026-11-17 — UniGov v0.9.0 Sovereign Release: Sovereign Live HUD & Floating Companion Window with Universal CLI Integration
+
+### 🚀 Major Achievements:
+- **Sovereign Live HUD Core (`src/unigov/hud/server.py`)**:
+  * Built single-port unified HTTP + WebSocket daemon on port `54321`.
+  * Real-time SQLite WAL transaction delta streamer pushing state updates to connected clients in <5ms.
+  * In-memory WebSocket pubsub queue with snapshot-on-connect and automatic connection pruning.
+  * Bidirectional Emergency Circuit Breaker (`/api/halt`) allowing instant halt of runaway background agent loops.
+- **Glassmorphic Floating Companion Web HUD (`src/unigov/hud/web/index.html`)**:
+  * Ultra-lightweight, zero-build single-file HTML5 interface powered by Tailwind CDN.
+  * **Mode 1 (Dynamic Island / Cyber-Pill)**: Floating compact 42px capsule that stays out of the developer's way while showing live task progress, invariant shield %, and zero-drift health.
+  * **Mode 2 (Maximized Floating Modal)**: 880x540px clean dark slate modal showing horizontal 5-layer phase train, active task progress, sub-second CLI execution stream, and constitutional guardrail badges.
+  * Native macOS traffic light controls, keyboard shortcuts (`F12` for toggle, `Space` for emergency pause, `r` for sync), and persistent `localStorage` window state.
+- **Terminal Floating Companion TUI (`src/unigov/hud/tui.py`)**:
+  * Pure terminal-native floating companion overlay built with Textual for Cloud Shell, SSH, and bare terminals without an X11 server.
+- **Automated Environment Detection & Universal CLI Hook (`src/unigov/hud/launcher.py` & `src/unigov/cli.py`)**:
+  * Added `unigov hud` command with automated Cloud Shell Web Preview detection, headless SSH detection, and local desktop popup handling.
+  * Added `unigov hud --pill` generating single-line dynamic island status for shell prompts.
+  * Added `unigov hook [bash|zsh]` for one-line dynamic prompt integration.
+- **Automated Test Suite Expansion**:
+  * Added `tests/test_hud.py` covering state snapshot generation, HTTP endpoints, WebSocket snapshot delivery, live broadcast streaming, and environment detection.
+  * Expanded test suite from 35 to 39 unit tests; all 39/39 passing green in 3.82s.
+
+### 🧪 Verification:
+- Unit Tests: `pytest tests/`: 39/39 passed (100% green).
+- Endpoint Verification: HTTP GET `/`, GET `/api/snapshot`, GET `/api/halt`, and WebSocket `/ws` verified.
+
+### 📌 Current State:
+- Version: v0.9.0
+- Repository: [UniAiOwner/unigov](https://github.com/UniAiOwner/unigov)
+- Architecture Maturity: Sovereign Autonomous Project Governance Engine with Real-Time HUD
+
+---
+*Signed by: Shoeb Ahmad*

@@ -5,7 +5,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-35%2F35%20passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-39%2F39%20passing-brightgreen.svg)]()
 [![Workspace](https://img.shields.io/badge/workspace-.unigov%20dual--zone-orange.svg)]()
 [![Architecture Drift](https://img.shields.io/badge/architecture%20drift-zero%20tolerance-red.svg)]()
 [![Maturity Tier](https://img.shields.io/badge/governance-Tier%204%20Production-purple.svg)]()
@@ -188,6 +188,10 @@ Maintains cross-repository contract synchronization across shared services at `~
 | `unigov audit-migration <file>` | Audit Room/SQL migration for zero-downtime safety, missing defaults, and schema traps. |
 | `unigov adr --from-git` | Auto-synthesize Architecture Decision Record directly from Git diffs into `.unigov/adrs/`. |
 | `unigov init-ci` | Generate GitHub Actions Sovereign Gate workflow (`.github/workflows/unigov-gate.yml`). |
+| `unigov hud` | Launch Sovereign Live HUD & Floating Companion Window with real-time WebSocket telemetry. |
+| `unigov hud --tui` | Launch terminal-native floating companion overlay for Cloud Shell / headless SSH. |
+| `unigov hud --pill` | Output compact single-line Dynamic Island status for shell prompts. |
+| `unigov hook [bash\|zsh]` | Generate shell prompt hook for terminal dynamic island integration. |
 | `unigov project [name]` | Show or switch the active project remembered by UniGov across all sessions. |
 | `unigov install-service` | Install and enable UniGov Continuous Watcher as a persistent Linux systemd user daemon. |
 

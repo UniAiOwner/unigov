@@ -571,6 +571,47 @@ def dashboard_cmd() -> None:
     launch_dashboard()
 
 
+@app.command(name="hud")
+def hud_cmd(
+    tui: bool = typer.Option(False, "--tui", "-t", help="Launch terminal-native floating TUI"),
+    port: int = typer.Option(54321, "--port", "-p", help="Server port (default: 54321)"),
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host address to bind"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Do not auto-open browser"),
+    daemon: bool = typer.Option(False, "--daemon", "-d", help="Run server in background daemon mode"),
+    pill: bool = typer.Option(False, "--pill", help="Output single-line dynamic island status for shell prompts"),
+) -> None:
+    """Launch UniGov Sovereign Live HUD & Floating Companion Window."""
+    from .hud.launcher import run_hud, get_pill_status_line
+    if pill:
+        print(get_pill_status_line())
+        return
+    run_hud(tui=tui, port=port, host=host, open_browser=not no_browser, daemon=daemon)
+
+
+@app.command(name="hook")
+def hook_cmd(
+    shell: str = typer.Argument("bash", help="Target shell (bash|zsh)"),
+) -> None:
+    """Generate shell prompt hook for displaying the UniGov Dynamic Island pill in terminals."""
+    if shell.lower() == "zsh":
+        print("""# UniGov Zsh Prompt Integration
+unigov_prompt_info() {
+    if command -v unigov &>/dev/null && [ -d ".unigov" ]; then
+        unigov hud --pill 2>/dev/null
+    fi
+}
+""")
+    else:
+        print("""# UniGov Bash Prompt Integration
+unigov_prompt_info() {
+    if command -v unigov &>/dev/null && [ -d ".unigov" ]; then
+        unigov hud --pill 2>/dev/null
+    fi
+}
+# Add $(unigov_prompt_info) to your PS1
+""")
+
+
 @app.command(name="self-audit")
 def self_audit_cmd(
     dir: Path = typer.Option(Path("."), "--dir", "-d", help="Path to project root to audit"),
