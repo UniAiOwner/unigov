@@ -1080,6 +1080,56 @@ def apply_proposal_cmd(
     ))
 
 
+@app.command(name="repomap")
+def repomap_cmd(
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Project workspace root"),
+    tokens: int = typer.Option(2048, "--tokens", "-t", help="Max token budget for repomap"),
+    top: int = typer.Option(50, "--top", "-n", help="Max symbols to display"),
+) -> None:
+    """Generate PageRank-centralized AST RepoMap fitting within context budget (inspired by Aider)."""
+    from .ast_graph import generate_repomap
+    repomap_str = generate_repomap(project_root=dir, max_tokens=tokens, top_n=top)
+    console.print(repomap_str)
+
+
+@app.command(name="blast-radius")
+def blast_radius_cmd(
+    file_path: str = typer.Argument(..., help="Target file path to analyze for impact"),
+    symbol: Optional[str] = typer.Option(None, "--symbol", "-s", help="Specific target symbol inside the file"),
+    depth: int = typer.Option(3, "--depth", help="Call propagation depth (1 to 3 steps)"),
+    dir: Path = typer.Option(Path("."), "--dir", "-d", help="Project workspace root"),
+) -> None:
+    """Analyze 2-3 step upstream (callers) and downstream (callees) architectural blast radius."""
+    from .ast_graph import calculate_blast_radius
+    report = calculate_blast_radius(project_root=dir, target_path=file_path, target_symbol=symbol, max_depth=depth)
+
+    color = "red" if report.risk_level == "HIGH" else ("yellow" if report.risk_level == "MEDIUM" else "green")
+
+    table = Table(title=f"Architectural Blast-Radius Analysis: {report.target_file}")
+    table.add_column("Property", style="bold cyan")
+    table.add_column("Details", style="white")
+
+    table.add_row("Target File", report.target_file)
+    table.add_row("Target Symbol", report.target_symbol or "[dim]All file symbols[/dim]")
+    table.add_row("Risk Level", f"[{color}]{report.risk_level}[/{color}]")
+    table.add_row("Risk Summary", report.risk_summary)
+    table.add_row("Total Impacted Files", str(len(report.impacted_files)))
+    table.add_row("Upstream Callers", str(len(report.upstream_callers)))
+    table.add_row("Downstream Callees", str(len(report.downstream_callees)))
+
+    console.print(table)
+
+    if report.upstream_callers:
+        up_table = Table(title="Upstream Dependents (Who will break if this changes?)")
+        up_table.add_column("Caller Symbol", style="bold green")
+        up_table.add_column("Caller File", style="white")
+        up_table.add_column("Step Depth", style="magenta")
+        up_table.add_column("Calls", style="cyan")
+        for u in report.upstream_callers[:15]:
+            up_table.add_row(u["symbol"], u["file_path"], str(u["depth"]), u["calls"])
+        console.print(up_table)
+
+
 if __name__ == "__main__":
     app()
 

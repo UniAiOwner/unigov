@@ -108,11 +108,11 @@ def test_gsd_token_budget_meter():
     assert "SWEET SPOT" in render_budget_badge(budget_sweet)
 
     # 3. Test Caution zone (30-50%)
-    budget_caution = calculate_token_budget("x" * 150_000, context_window=100_000)
+    budget_caution = calculate_token_budget("word " * 4_000, context_window=10_000)
     assert budget_caution["zone"] in ("CAUTION", "ROT_DANGER")
 
     # 4. Test Rot Danger zone (> 50%)
-    budget_rot = calculate_token_budget("x" * 300_000, context_window=100_000)
+    budget_rot = calculate_token_budget("word " * 7_000, context_window=10_000)
     assert budget_rot["zone"] == "ROT_DANGER"
     assert "ROT DANGER" in render_budget_badge(budget_rot)
 

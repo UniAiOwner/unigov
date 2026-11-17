@@ -302,6 +302,29 @@ def init_schema(conn: sqlite3.Connection) -> None:
         source_doc TEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS ast_symbols (
+        symbol_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        file_path TEXT NOT NULL,
+        symbol_name TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        line_no INTEGER NOT NULL,
+        signature TEXT,
+        pagerank REAL DEFAULT 0.0,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(file_path, symbol_name, kind, line_no)
+    );
+
+    CREATE TABLE IF NOT EXISTS ast_edges (
+        edge_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        caller_symbol TEXT NOT NULL,
+        callee_symbol TEXT NOT NULL,
+        caller_file TEXT NOT NULL,
+        callee_file TEXT,
+        relation TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(caller_symbol, callee_symbol, caller_file, relation)
+    );
     """)
 
     # Ensure tasks table has modern metadata columns

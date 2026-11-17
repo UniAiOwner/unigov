@@ -747,3 +747,38 @@
 
 ---
 *Signed by: Shoeb Ahmad*
+
+
+## 📅 Date: 2026-11-18 — Tree-Sitter AST RepoMap, PageRank Centrality & 2-3 Step Blast-Radius Engine (v0.9.3)
+
+### 🚀 Major Achievements:
+- **Ground-Truth Polyglot AST Graph & PageRank Centrality (`src/unigov/ast_graph.py`)**:
+  * Implemented polyglot AST parser parsing Python (`tree_sitter_python` + native `ast`), Kotlin (`.kt`), TypeScript/JavaScript (`.ts`, `.tsx`, `.js`), and Java (`.java`).
+  * Discovers classes, interfaces, methods, functions, constructor parameters, inheritance hierarchies, and cross-file call sites.
+  * Implemented deterministic PageRank centrality algorithm (damping factor 0.85, 20 iterations) ranking core foundation symbols across the entire repository.
+- **Constitutional 2-3 Step Blast-Radius Engine**:
+  * Implemented `calculate_blast_radius()` computing exact multi-step upstream callers (dependents) and downstream callees (dependencies) up to 3 depth levels.
+  * Dynamically computes risk severity (`LOW`, `MEDIUM`, `HIGH`) and generates formatted tabular impact matrices.
+- **Token-Budget Aware RepoMap Generator**:
+  * Implemented `generate_repomap()` producing a compact, hierarchical Markdown symbol map respecting GSD 0-30% context budget limits.
+- **New CLI Commands Added (`src/unigov/cli.py`)**:
+  * `unigov repomap [--tokens 2048] [--top 50]`: Displays PageRank-centralized AST RepoMap.
+  * `unigov blast-radius <file_path> [--symbol <name>] [--depth 3]`: Analyzes 2-3 step upstream and downstream callers.
+- **Database Schema Upgrades (`src/unigov/db.py`)**:
+  * Added `ast_symbols` and `ast_edges` tables in SQLite `state.db` for persistent symbol caching and fast querying.
+- **Automated Test Suite Expansion (`tests/test_ast_graph.py`)**:
+  * Added 7 comprehensive test cases covering Python AST extraction, Kotlin data classes and constructors, TypeScript interfaces, PageRank computation, multi-step blast-radius propagation, and Typer CLI execution.
+  * Full test suite expanded from 50 to 57 tests; all 57/57 passing 100% green in 17.14s.
+- **Version Bump**: Bumped to `v0.9.3` in `pyproject.toml` and re-installed locally.
+
+### 🧪 Verification:
+- Unit Tests: `/home/uniai/.local/venv314/bin/pytest tests/ -v`: 57/57 PASSED (100% green).
+- CLI Verification: `unigov repomap --top 10` and `unigov blast-radius src/unigov/db.py` executed cleanly with formatted Rich tables.
+
+### 📌 Current State:
+- Version: v0.9.3
+- AST Engine: 100% Operational, Multi-Language, PageRank-Ranked
+- Repository: [UniAiOwner/unigov](https://github.com/UniAiOwner/unigov)
+
+---
+*Signed by: Shoeb Ahmad*
