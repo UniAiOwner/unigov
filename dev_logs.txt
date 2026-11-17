@@ -610,3 +610,39 @@
 
 ---
 *Signed by: Shoeb Ahmad*
+
+
+## 📅 Date: 2026-11-17 — Native Inotify Filesystem Sentinel & Direct Session Companion (Option 1)
+
+### 🚀 Major Achievements:
+- **True Inotify Filesystem Watchdog Sentinel (`src/unigov/sentinel.py`)**:
+  * Implemented real-time filesystem observer using `watchdog.observers.Observer` + `FileSystemEventHandler` watching all project source trees.
+  * Instant invariant evaluation on file modification/creation:
+    - **Law-000**: Detects and logs critical alerts for `@Suppress` / `@SuppressWarnings` in `.kt` / `.java` files.
+    - **Security**: Scans for secret signatures (`AIzaSy`, `BEGIN PRIVATE KEY`, `sk-proj-`, `ghp_`).
+    - **Active Task Target Matching**: Correlates modified file paths against active tasks in `.unigov/state.db`.
+  * Persists live telemetry state to `.unigov/sentinel.json` and logs real-time trace to `.unigov/watch.log`.
+- **Direct Antigravity Session Companion (`src/unigov/companion.py`)**:
+  * Added `unigov companion` command: Renders an ultra-compact, high-density terminal status card fitting within 76 columns without horizontal wrapping.
+  * Added `unigov pill` command: Renders a single-line dynamic status string for shell prompts and CLI headers.
+- **CLI Commands Upgraded (`src/unigov/cli.py`)**:
+  * Upgraded `unigov watch` to run the inotify watchdog observer alongside periodic contract drift checks.
+  * Systemd user daemon `unigov-watcher.service` now operates as a live multi-threaded inotify filesystem sentinel.
+  * Fixed active task selection in `server.py` and `companion.py` to prioritize the most recent active/ready leaf tasks.
+- **Automated Test Suite Expansion**:
+  * Added `tests/test_companion_sentinel.py` covering companion card rendering, dynamic pill output, `@Suppress` invariant detection, and sentinel state persistence.
+  * Expanded test suite from 39 to 44 tests; all 44/44 passing 100% green in 15.42s.
+  * Pushed to remote repository `https://github.com/UniAiOwner/unigov.git` (`77e3317..b8a7d8c`).
+
+### 🧪 Verification:
+- Unit Tests: `pytest tests/`: 44/44 passed (100% green).
+- CLI Verification: `unigov companion` renders within 76 columns with live sentinel status.
+- File Modification Test: Inotify observer captured test mutation and logged cleanly.
+
+### 📌 Current State:
+- Version: v0.9.0
+- Sentinel Status: ACTIVE & MONITORING
+- Repository: [UniAiOwner/unigov](https://github.com/UniAiOwner/unigov)
+
+---
+*Signed by: Shoeb Ahmad*
