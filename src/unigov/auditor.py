@@ -33,6 +33,12 @@ def backup_state_db() -> Path:
 
 
 def run_offline_audit(project_root: Path = Path(".")) -> None:
+    if project_root.resolve() == Path.home():
+        from .db import get_registry_data
+        reg = get_registry_data()
+        if reg.get("active_path"):
+            project_root = Path(reg["active_path"])
+
     conn = get_db()
     vision = conn.execute("SELECT * FROM project_vision WHERE id = 1").fetchone()
     tasks = conn.execute("SELECT * FROM tasks").fetchall()
