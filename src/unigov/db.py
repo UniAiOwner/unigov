@@ -185,13 +185,22 @@ def get_db(require_init: bool = True) -> sqlite3.Connection:
         console.print("[bold red]Error:[/bold red] Workspace not initialized. Run [cyan]unigov init[/cyan] first.")
         raise typer.Exit(1)
 
-    active_dir.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_file)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON;")
-    conn.execute("PRAGMA journal_mode = WAL;")
-    conn.execute("PRAGMA busy_timeout = 5000;")
-    init_schema(conn)
+    try:
+        active_dir.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+
+    try:
+        conn = sqlite3.connect(db_file)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON;")
+        conn.execute("PRAGMA journal_mode = WAL;")
+        conn.execute("PRAGMA busy_timeout = 5000;")
+        init_schema(conn)
+    except sqlite3.OperationalError:
+        uri = f"file:{db_file.resolve().as_posix()}?immutable=1"
+        conn = sqlite3.connect(uri, uri=True)
+        conn.row_factory = sqlite3.Row
     return conn
 
 

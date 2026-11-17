@@ -51,14 +51,16 @@ async def test_hud_server_lifecycle_and_endpoints():
     server = HudServer(host="127.0.0.1", port=port)
     await server.start()
 
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
     def do_get(url: str):
         req = urllib.request.Request(url)
-        with urllib.request.urlopen(req, timeout=3.0) as resp:
+        with opener.open(req, timeout=3.0) as resp:
             return resp.status, resp.read().decode("utf-8")
 
     def do_post(url: str, data: bytes = b"{}"):
         req = urllib.request.Request(url, data=data, method="POST")
-        with urllib.request.urlopen(req, timeout=3.0) as resp:
+        with opener.open(req, timeout=3.0) as resp:
             return resp.status, resp.read().decode("utf-8")
 
     try:
