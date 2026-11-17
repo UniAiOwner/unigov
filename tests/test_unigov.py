@@ -608,7 +608,7 @@ def test_purge_ghost_files_and_reconcile_orphans(isolated_workspace):
 
 def test_dynamic_version():
     import unigov
-    assert unigov.__version__ in ("0.8.0", "0.9.0", "0.9.1", "0.9.2")
+    assert unigov.__version__ in ("0.8.0", "0.9.0", "0.9.1", "0.9.2", "0.9.3")
 
 
 def test_worktree_sandboxed_lifecycle(isolated_workspace):
