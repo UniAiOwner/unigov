@@ -16,7 +16,7 @@ from .executor import pick_next_ready_task, execute_task_with_agent, verify_and_
 from .telemetry import print_cost_summary
 from .auditor import run_offline_audit
 from .ecosystem import publish_contract, subscribe_contract, acknowledge_contract, check_ecosystem_sync
-from .tui import launch_dashboard
+from .tui import launch_dashboard, render_terminal_dashboard
 from .companion import render_companion_card, render_dynamic_pill
 from .sentinel import start_sentinel_monitor
 
@@ -588,12 +588,13 @@ def watch_cmd(
     if daemon:
         console.print(f"[cyan]Daemon mode active. Logging to {log_file}[/cyan]")
 
-    # Start inotify filesystem watchdog observer
+    # Start inotify filesystem watchdog observer on actual project root
     observer = None
     try:
-        observer = start_sentinel_monitor(project_root=Path.cwd(), run_forever=False)
+        project_root = active_gov_dir.parent
+        observer = start_sentinel_monitor(project_root=project_root, run_forever=False)
         if observer:
-            console.print("[green]✔ Inotify Filesystem Sentinel & Invariant Guardian active.[/green]")
+            console.print(f"[green]✔ Inotify Filesystem Sentinel active on {project_root}[/green]")
     except Exception as e:
         console.print(f"[yellow]Watchdog observer warning: {e}[/yellow]")
 
@@ -628,6 +629,58 @@ def watch_cmd(
                 try:
                     from .auditor import backup_state_db
                     backup_state_db()
+                except Exception:
+                    pass
+
+            # 4. Periodic Skill Parity & Self-Healing Audit every 10 cycles
+            if cycle % 10 == 1:
+                try:
+                    import sys
+                    skills_src = "/media/uniai/UniAi/PROJECTS_MIGRATED/uniskill/src"
+                    if skills_src not in sys.path:
+                        sys.path.insert(0, skills_src)
+                    from uniskill.sync import audit_triple_env_parity, sync_all_skills_across_environments
+                    audit_res = audit_triple_env_parity()
+                    if audit_res.get("missing_in_targets") or audit_res.get("mismatches"):
+                        sync_all_skills_across_environments()
+                except Exception:
+                    pass
+
+            # 5. Dynamic Project Hot-Switching
+            try:
+                from .db import get_registry_data
+                reg = get_registry_data()
+                cur_act = reg.get("active_path")
+                if cur_act and Path(cur_act).resolve() != project_root.resolve():
+                  new_root = Path(cur_act).resolve()
+                  if new_root.exists():
+                    if observer:
+                      try:
+                        observer.stop()
+                        observer.join()
+                      except Exception:
+                        pass
+                    project_root = new_root
+                    active_gov_dir = resolve_gov_dir(project_root)
+                    log_file = active_gov_dir / "watch.log"
+                    observer = start_sentinel_monitor(
+                        project_root=project_root, run_forever=False
+                    )
+                    from .sentinel import send_desktop_notification
+
+                    send_desktop_notification(
+                        "UniGov Sentinel",
+                        f"Hot-switched active watch to {project_root.name}",
+                    )
+            except Exception:
+                pass
+
+            # Fire desktop notification on alerts
+            if alerts:
+                try:
+                    from .sentinel import send_desktop_notification
+                    for a in alerts:
+                        send_desktop_notification("🚨 UniGov Sentinel Alert", a, urgency="critical")
                 except Exception:
                     pass
 
@@ -684,6 +737,41 @@ def ui_cmd() -> None:
 def dashboard_cmd() -> None:
     """Alias for 'unigov ui'."""
     launch_dashboard()
+
+
+@app.command(name="dash")
+def dash_cmd() -> None:
+    """Render comprehensive sovereign project governance, sentinel telemetry & skill HUD dashboard."""
+    render_terminal_dashboard()
+
+
+@app.command(name="doctor")
+def doctor_cmd() -> None:
+    """Holistic System Diagnostic: Empirically verify daemon, inotify, SQLite, parity, and MCP."""
+    from .doctor import diagnose_entire_system
+    
+    console.print("[cyan]Running UniGov & UniSkill Sovereign Holistic System Diagnosis...[/cyan]\n")
+    results = diagnose_entire_system()
+    
+    table = Table(title="⬢ Sovereign System Health & Readiness Diagnosis")
+    table.add_column("Status", style="bold", width=8)
+    table.add_column("Diagnostic Pillar", style="bold cyan", width=38)
+    table.add_column("Empirical Details", style="white")
+    
+    all_passed = True
+    for r in results:
+        passed = r["passed"]
+        if not passed:
+            all_passed = False
+        mark = "[bold green][✓] PASS[/bold green]" if passed else "[bold red][✗] FAIL[/bold red]"
+        table.add_row(mark, r["name"], r["details"])
+        
+    console.print(table)
+    if all_passed:
+        console.print(f"\n[bold green]ALL {len(results)} DIAGNOSTIC PILLARS PASSED. SYSTEM IS 100% HEALTHY & READY.[/bold green]")
+    else:
+        console.print("\n[bold red]ONE OR MORE PILLARS REQUIRE ATTENTION.[/bold red]")
+        raise typer.Exit(1)
 
 
 @app.command(name="hud")
@@ -755,6 +843,60 @@ def mcp_serve_cmd() -> None:
     """Launch native JSON-RPC Model Context Protocol (MCP) server over stdio."""
     from .mcp import run_mcp_server
     run_mcp_server()
+
+
+@app.command(name="auto-heal")
+def auto_heal_cmd(
+    target_path: str = typer.Argument(".", help="Directory or file to auto-heal"),
+) -> None:
+    """Sovereign Auto-Healing: Automatically repair @Suppress shortcuts, YAML frontmatter, and forbidden nomenclature."""
+    from .sentinel import auto_heal_file, check_file_invariants
+    from .constants import DEFAULT_IGNORE_DIRS, CODE_EXTENSIONS, normalize_posix_path
+    
+    target = Path(target_path).resolve()
+    if not target.exists():
+        console.print(f"[bold red]Target path not found:[/bold red] {target}")
+        raise typer.Exit(1)
+
+    healed_records = []
+    
+    if target.is_file():
+        candidates = [target]
+    else:
+        candidates = []
+        for p in target.rglob("*"):
+            if p.is_file():
+                norm = normalize_posix_path(p)
+                if any(ignored in norm.split("/") for ignored in DEFAULT_IGNORE_DIRS):
+                    continue
+                if p.suffix.lower() in CODE_EXTENSIONS or p.name == "SKILL.md":
+                    candidates.append(p)
+
+    console.print(f"[cyan]Scanning {len(candidates)} file(s) for auto-healing violations in {target}...[/cyan]")
+    for f in candidates:
+        try:
+            rel = normalize_posix_path(f.relative_to(target))
+        except Exception:
+            rel = normalize_posix_path(f)
+        
+        violations = check_file_invariants(f, rel)
+        if violations:
+            res = auto_heal_file(f)
+            if res.get("healed"):
+                healed_records.append((rel, res.get("actions", [])))
+
+    if not healed_records:
+        console.print("[bold green]Zero violations requiring auto-healing. All files are clean and compliant.[/bold green]")
+        return
+
+    table = Table(title="⬢ Sovereign Sentinel Auto-Healing Manifest")
+    table.add_column("File Path", style="bold cyan")
+    table.add_column("Repairs Executed", style="bold green")
+    for path_str, actions in healed_records:
+        table.add_row(path_str, ", ".join(actions))
+
+    console.print(table)
+    console.print(f"[bold green]Successfully healed {len(healed_records)} file(s).[/bold green]")
 
 
 @app.command(name="worktree-create")
@@ -1128,6 +1270,17 @@ def blast_radius_cmd(
         for u in report.upstream_callers[:15]:
             up_table.add_row(u["symbol"], u["file_path"], str(u["depth"]), u["calls"])
         console.print(up_table)
+
+
+try:
+    import sys
+    skills_src = "/media/uniai/UniAi/PROJECTS_MIGRATED/uniskill/src"
+    if skills_src not in sys.path:
+        sys.path.insert(0, skills_src)
+    from uniskill.cli import app as skill_app
+    app.add_typer(skill_app, name="skill", help="Antigravity Sovereign Skill Manager: Audit, Evaluate, Upgrade, and Forge skills.")
+except Exception:
+    pass
 
 
 if __name__ == "__main__":

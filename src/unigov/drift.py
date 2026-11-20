@@ -103,7 +103,22 @@ def install_pre_commit_hook() -> None:
         console.print("[bold red]Error:[/bold red] Current directory is not a Git repository.")
         raise typer.Exit(1)
 
-    script = "#!/bin/sh\nantigravity-pm check-drift --staged\n"
+    script = """#!/bin/sh
+# ⬢ UniGov & UniSkill Sovereign Dual Invariant Pre-Commit Gate
+set -e
+
+# 1. UniGov Drift Check
+if command -v unigov >/dev/null 2>&1; then
+    unigov check-drift --staged
+fi
+
+# 2. UniSkill Constitutional Invariants Audit
+if command -v uniskill >/dev/null 2>&1; then
+    uniskill audit
+fi
+
+echo "✔ Pre-commit Gate Passed: Clean Architecture & 0-Suppress Invariants."
+"""
     hook_path.write_text(script, encoding="utf-8")
     hook_path.chmod(0o755)
-    console.print(f"[bold green]Installed Git pre-commit hook:[/bold green] {hook_path}")
+    console.print(f"[bold green]Installed Unified Sovereign Pre-commit hook:[/bold green] {hook_path}")

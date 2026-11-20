@@ -11,6 +11,10 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+skills_src = "/media/uniai/UniAi/PROJECTS_MIGRATED/uniskill/src"
+if skills_src not in sys.path:
+    sys.path.insert(0, skills_src)
+
 from .db import get_db
 from .drift import SECRET_SIGNATURES
 
@@ -48,6 +52,92 @@ TOOLS_MANIFEST = [
         "inputSchema": {
             "type": "object",
             "properties": {},
+        },
+    },
+    {
+        "name": "uniskill_route",
+        "description": "Routes a task description or query to the top surgical skills, returning relevance scores, scripts, and direct directives.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "User prompt or task description"},
+                "top_k": {"type": "integer", "description": "Number of top skills to return (default 3)"}
+            },
+            "required": ["query"]
+        },
+    },
+    {
+        "name": "uniskill_ensure",
+        "description": "Dynamic 100% Convergence Gate: Audits prompt gaps against candidate skill, injects 2026 SOTA blueprints, and elevates skill to 100% precision.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string", "description": "Task requirement to elevate to 100%"},
+                "skill_name": {"type": "string", "description": "Target skill (optional, auto-routed if omitted)"}
+            },
+            "required": ["prompt"]
+        },
+    },
+    {
+        "name": "uniskill_eval",
+        "description": "Pre-execution suitability gate: Evaluates skill compatibility against target project's actual stack.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "skill_name": {"type": "string", "description": "Name of the skill"},
+                "project_path": {"type": "string", "description": "Target project root directory (default '.')"}
+            },
+            "required": ["skill_name"]
+        },
+    },
+    {
+        "name": "uniskill_run_script",
+        "description": "Executes a pre-tested helper script inside a skill's scripts/ directory.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "skill_name": {"type": "string", "description": "Name of the skill"},
+                "script_name": {"type": "string", "description": "Name of the script in scripts/"},
+                "args": {"type": "array", "items": {"type": "string"}, "description": "CLI arguments"}
+            },
+            "required": ["skill_name", "script_name"]
+        },
+    },
+    {
+        "name": "uniskill_status",
+        "description": "Returns total physical files (1093), unique skills (317), 8-domain breakdown, and triple-parity status.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "name": "uniskill_extract",
+        "description": "Zero-Noise Token Economizer: Extracts high-density code blueprints and constitutional invariants, stripping token fluff.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "skill_name": {"type": "string", "description": "Name of the skill or path to SKILL.md"},
+                "blueprint_only": {"type": "boolean", "description": "Extract only code blocks and headings"},
+                "invariants_only": {"type": "boolean", "description": "Extract only invariants, rules, and checklists"}
+            },
+            "required": ["skill_name"]
+        },
+    },
+    {
+        "name": "uniskill_compose",
+        "description": "Multi-Skill Intelligent Composer: Merges multiple skills into a single deduplicated prompt payload respecting token budgets.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "skills": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of skill names to combine"
+                },
+                "max_tokens": {"type": "integer", "description": "Token budget cap (default 2500)"}
+            },
+            "required": ["skills"]
         },
     },
 ]
@@ -125,11 +215,71 @@ def handle_unigov_check_drift(conn: sqlite3.Connection, args: Dict[str, Any]) ->
     }
 
 
+def handle_uniskill_route(conn: sqlite3.Connection, args: Dict[str, Any]) -> Dict[str, Any]:
+    from uniskill.router import route_skills_for_task
+    query = args.get("query", "")
+    top_k = args.get("top_k", 3)
+    matches = route_skills_for_task(query, top_k=top_k)
+    return {"query": query, "matches": matches, "count": len(matches)}
+
+
+def handle_uniskill_ensure(conn: sqlite3.Connection, args: Dict[str, Any]) -> Dict[str, Any]:
+    from uniskill.elevate import elevate_skill_to_100_percent
+    prompt = args.get("prompt", "")
+    skill_name = args.get("skill_name")
+    return elevate_skill_to_100_percent(prompt, target_skill_name=skill_name)
+
+
+def handle_uniskill_eval(conn: sqlite3.Connection, args: Dict[str, Any]) -> Dict[str, Any]:
+    from uniskill.evaluator import evaluate_skill_for_project
+    skill_name = args.get("skill_name", "")
+    project_path = Path(args.get("project_path", "."))
+    return evaluate_skill_for_project(skill_name, project_path)
+
+
+def handle_uniskill_run_script(conn: sqlite3.Connection, args: Dict[str, Any]) -> Dict[str, Any]:
+    from uniskill.runner import run_skill_script
+    skill_name = args.get("skill_name", "")
+    script_name = args.get("script_name", "")
+    script_args = args.get("args", [])
+    return run_skill_script(skill_name, script_name, args=script_args)
+
+
+def handle_uniskill_status(conn: sqlite3.Connection, args: Dict[str, Any]) -> Dict[str, Any]:
+    from uniskill.registry import get_catalog_stats
+    from uniskill.sync import audit_triple_env_parity
+    stats = get_catalog_stats()
+    parity = audit_triple_env_parity()
+    return {"catalog": stats, "parity": parity}
+
+
+def handle_uniskill_extract(conn: sqlite3.Connection, args: Dict[str, Any]) -> Dict[str, Any]:
+    from uniskill.economizer import economize_skill
+    skill_name = args.get("skill_name", "")
+    blueprint_only = args.get("blueprint_only", False)
+    invariants_only = args.get("invariants_only", False)
+    return economize_skill(skill_name, blueprint_only=blueprint_only, invariants_only=invariants_only)
+
+
+def handle_uniskill_compose(conn: sqlite3.Connection, args: Dict[str, Any]) -> Dict[str, Any]:
+    from uniskill.composer import compose_skills
+    skills = args.get("skills", [])
+    max_tokens = args.get("max_tokens", 2500)
+    return compose_skills(skills, max_tokens=max_tokens)
+
+
 TOOL_HANDLERS = {
     "unigov_status": handle_unigov_status,
     "unigov_get_ready_tasks": handle_unigov_get_ready_tasks,
     "unigov_get_invariants": handle_unigov_get_invariants,
     "unigov_check_drift": handle_unigov_check_drift,
+    "uniskill_route": handle_uniskill_route,
+    "uniskill_ensure": handle_uniskill_ensure,
+    "uniskill_eval": handle_uniskill_eval,
+    "uniskill_run_script": handle_uniskill_run_script,
+    "uniskill_status": handle_uniskill_status,
+    "uniskill_extract": handle_uniskill_extract,
+    "uniskill_compose": handle_uniskill_compose,
 }
 
 

@@ -421,6 +421,58 @@ def _preview_and_apply_plan(conn, task_id: str, plan: AgentExecutionPlan, locked
     return True
 
 
+def get_unicortex_prime_persona(task_title: str, task_desc: str, task_id: str) -> str:
+    """Selects and distills the relevant UniCortex Green Prime cognitive persona for the task."""
+    prime_map = {
+        "LAYER_1_DOMAIN": ("05_software_architecture", "ENTERPRISE_DDD_PRIME"),
+        "LAYER_2_DATA": ("11_database_data", "DATABASE_DATA_PRIME"),
+        "LAYER_3_SURFACES": ("56_adaptive_ui_prime", "ADAPTIVE_UI_PRIME"),
+        "LAYER_4_SECURITY": ("21_security_appsec", "SECURITY_APPSEC_PRIME"),
+        "LAYER_5_INTELLIGENCE": ("18_agentic_ai", "AGENTIC_AI_PRIME"),
+    }
+    text = f"{task_id} {task_title} {task_desc}".upper()
+    selected_dir, selected_name = None, None
+    for layer_k, (dir_name, p_name) in prime_map.items():
+        if layer_k in text or layer_k.replace("LAYER_", "L").replace("_", " ") in text:
+            selected_dir = dir_name
+            selected_name = p_name
+            break
+    if not selected_dir:
+        if any(w in text for w in ["DB", "SQL", "ROOM", "DATABASE", "SCHEMA", "STORE", "MIGRATION"]):
+            selected_dir, selected_name = "11_database_data", "DATABASE_DATA_PRIME"
+        elif any(w in text for w in ["UI", "COMPOSE", "VIEW", "SCREEN", "LAYOUT", "CANVAS", "SURFACE"]):
+            selected_dir, selected_name = "56_adaptive_ui_prime", "ADAPTIVE_UI_PRIME"
+        elif any(w in text for w in ["AUTH", "SECURITY", "CRYPTO", "TOKEN", "PERMISSION", "GUARD"]):
+            selected_dir, selected_name = "21_security_appsec", "SECURITY_APPSEC_PRIME"
+        elif any(w in text for w in ["AI", "AGENT", "LLM", "INFERENCE", "BRAIN", "COGNITIVE"]):
+            selected_dir, selected_name = "18_agentic_ai", "AGENTIC_AI_PRIME"
+        elif any(w in text for w in ["KOTLIN", "ANDROID", "GRADLE", "JETPACK"]):
+            selected_dir, selected_name = "06_kotlin_android", "KOTLIN_ANDROID_PRIME"
+        elif any(w in text for w in ["PYTHON", "UV", "RUFF", "PYPROJECT"]):
+            selected_dir, selected_name = "07_python_engineering", "PYTHON_ENGINEERING_PRIME"
+        elif any(w in text for w in ["FORMAL", "VERIFY", "INVARIANT", "SMT", "Z3"]):
+            selected_dir, selected_name = "45_formal_verification_prime", "FORMAL_VERIFICATION_PRIME"
+        else:
+            selected_dir, selected_name = "05_software_architecture", "SOFTWARE_ARCHITECTURE_PRIME"
+
+    primes_base = Path("/media/uniai/UniAi/PROJECTS_MIGRATED/Agentic team/04_GREEN_PRIMES_30")
+    target_path = primes_base / selected_dir
+    if not target_path.exists():
+        matches = [d for d in primes_base.iterdir() if d.is_dir() and selected_dir in d.name]
+        if matches:
+            target_path = matches[0]
+
+    if target_path.exists():
+        spec_file = target_path / "PRIME_SPECIFICATION.md"
+        if not spec_file.exists():
+            spec_file = target_path / "SKILL.md"
+        if spec_file.exists():
+            lines = [l for l in spec_file.read_text(encoding="utf-8", errors="ignore").splitlines() if l.strip()]
+            snippet = "\n".join(lines[:25])
+            return f"\n\nUNICORTEX COGNITIVE PERSONA ({selected_name}):\n{snippet}\n"
+    return ""
+
+
 def execute_task_with_agent(
     task_id: str,
     error_feedback: str = "",
@@ -445,6 +497,38 @@ def execute_task_with_agent(
     from .context_bundler import bundle_one_hop_context
     one_hop_context = bundle_one_hop_context(Path("."), target_files)
 
+    # 🧠 UniCortex Green Prime Cognitive Persona Injection
+    prime_persona_section = get_unicortex_prime_persona(task["title"], task["description"], task["task_id"])
+
+    # 🧬 Sovereign Skill Injection & Dynamic Elevation Gate via UniSkill Economizer
+    skill_blueprint_section = ""
+    try:
+        import sys
+        skills_src = "/media/uniai/UniAi/PROJECTS_MIGRATED/uniskill/src"
+        if skills_src not in sys.path:
+            sys.path.insert(0, skills_src)
+        from uniskill.router import route_skills_for_task
+        from uniskill.economizer import economize_skill
+
+        task_query = f"{task['title']} {task['description']}"
+        routed = route_skills_for_task(task_query, top_k=1)
+        if routed:
+            best_skill = routed[0]
+            econ = economize_skill(best_skill["skill_name"], blueprint_only=True)
+            if econ and econ.get("content"):
+                skill_blueprint_section = (
+                    f"\n\nSOVEREIGN 2026 SOTA SKILL BLUEPRINT ({best_skill['skill_name']} - "
+                    f"Relevance: {best_skill['relevance_score']}% - Economized: {econ.get('compression_percentage', 0)}% tokens saved):\n"
+                    f"{econ['content'][:3500]}\n"
+                )
+            else:
+                skill_p = Path(best_skill["file_path"])
+                if skill_p.exists():
+                    skill_text = skill_p.read_text(encoding="utf-8", errors="ignore")
+                    skill_blueprint_section = f"\n\nSOVEREIGN 2026 SOTA SKILL BLUEPRINT ({best_skill['skill_name']} - Precision: {best_skill['relevance_score']}%):\n{skill_text[:3000]}\n"
+    except Exception:
+        pass
+
     feedback_section = f"\nPREVIOUS VERIFICATION FAILURE LOG (FIX THIS):\n{error_feedback}\n" if error_feedback else ""
     prompt = f"""
     Implement or fix the following atomic software engineering task while obeying all Locked Constraints.
@@ -457,6 +541,8 @@ def execute_task_with_agent(
     LOCKED CONSTRAINTS: {vision['hard_constraints_json']}
     TASK ID: {task['task_id']} — {task['title']}
     SPECIFICATION: {task['description']}
+    {prime_persona_section}
+    {skill_blueprint_section}
     {feedback_section}
     CURRENT FILE STATES:
     {json.dumps(current_files)}
@@ -529,6 +615,21 @@ def verify_and_unlock(
                         continue
                 conn.execute("UPDATE tasks SET status = 'FAILED' WHERE task_id = ?", (task_id,))
                 conn.commit()
+                # Record failure in skill empirical reliability
+                try:
+                    import sys
+                    skills_src = "/media/uniai/UniAi/PROJECTS_MIGRATED/uniskill/src"
+                    if skills_src not in sys.path:
+                        sys.path.insert(0, skills_src)
+                    from uniskill.router import route_skills_for_task
+                    from uniskill.registry import record_skill_execution_outcome
+                    routed = route_skills_for_task(f"{task['title']} {task['description']}", top_k=1)
+                    if routed and routed[0]["relevance_score"] >= 35.0:
+                        outcome = record_skill_execution_outcome(routed[0]["skill_name"], passed=False)
+                        if outcome["reliability_score"] < 80.0:
+                            console.print(f"[bold yellow]⚠️ Skill Reliability Alert:[/bold yellow] {outcome['skill_name']} dropped to {outcome['reliability_score']}%. SOTA upgrade recommended.")
+                except Exception:
+                    pass
                 raise typer.Exit(1)
 
         with conn:
@@ -548,4 +649,31 @@ def verify_and_unlock(
                     console.print(f"[green]DAG Unlocked:[/green] {cand_id} is now READY.")
 
         console.print(f"[bold green]Task {task_id} VERIFIED & LOCKED![/bold green]")
+
+        # 🧠 Record Empirical Skill Reliability Outcome
+        try:
+            import sys
+            skills_src = "/media/uniai/UniAi/PROJECTS_MIGRATED/uniskill/src"
+            if skills_src not in sys.path:
+                sys.path.insert(0, skills_src)
+            from uniskill.router import route_skills_for_task
+            from uniskill.registry import record_skill_execution_outcome
+            routed = route_skills_for_task(f"{task['title']} {task['description']}", top_k=1)
+            if routed and routed[0]["relevance_score"] >= 35.0:
+                outcome = record_skill_execution_outcome(routed[0]["skill_name"], passed=True)
+                console.print(f"[cyan]Skill Reliability Boosted:[/cyan] {outcome['skill_name']} -> {outcome['reliability_score']}% ({outcome['success_count']} passed)")
+        except Exception:
+            pass
+
+        # 🧠 Closed-Loop Reflexive Skill Learning
+        try:
+            import sys
+            skills_src = "/media/uniai/UniAi/PROJECTS_MIGRATED/uniskill/src"
+            if skills_src not in sys.path:
+                sys.path.insert(0, skills_src)
+            from uniskill.learner import distill_lesson_into_skill
+            distill_lesson_into_skill(Path("."))
+        except Exception:
+            pass
+
         return
