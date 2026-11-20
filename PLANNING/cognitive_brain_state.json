@@ -1,11 +1,11 @@
 {
   "project_name": "unigov",
   "project_root": "/media/uniai/UniAi/PROJECTS_MIGRATED/unigov",
-  "last_brain_sync_iso": "2026-11-18T03:12:04.057948",
+  "last_brain_sync_iso": "2026-11-20T10:10:49.935214",
   "memory_tier_status": {
     "tier_0_working_memory": "ACTIVE (Subagent mailboxes, current scratchpad, reactive context)",
     "tier_1_symbolic_ast": "SYNCHRONIZED (0 Entities, 0 UI Composables, Kotlin AST)",
-    "tier_2_episodic_memory": "SYNCHRONIZED (23 chronological dev log milestones)",
+    "tier_2_episodic_memory": "SYNCHRONIZED (24 chronological dev log milestones)",
     "tier_3_semantic_graph": "SYNCHRONIZED (HippoRAG 2 PageRank across 1 subprojects)",
     "tier_4_epistemic_invariants": "ENFORCED (Sovereign Invariant Laws, Zero-@Suppress Rule, Law ACC-001)"
   },
@@ -16,7 +16,7 @@
     ],
     "entities_count": 0,
     "composables_count": 0,
-    "latest_milestone": "## \ud83d\udcc5 Date: 2026-11-18 \u2014 Tree-Sitter AST RepoMap, PageRank Centrality & 2-3 Step Blast-Radius Engine (v0.9.3)"
+    "latest_milestone": "## \ud83d\udcc5 Date: 2026-11-20 \u2014 Sovereign Triad Unification: UniGov + UniSkill + UniCortex Brain"
   },
   "quality_gates": {
     "spotless_ktlint": "100% PASSED",
@@ -47,7 +47,8 @@
     "phase_20_unigov_7_layer_hierarchical_feat": "COMPLETED",
     "phase_21_legacy_web_hud_removal___native": "COMPLETED",
     "phase_22_triple_paradigm_integration__spe": "COMPLETED",
-    "phase_23_tree_sitter_ast_repomap__pageran": "COMPLETED"
+    "phase_23_tree_sitter_ast_repomap__pageran": "COMPLETED",
+    "phase_24_sovereign_triad_unification__uni": "COMPLETED"
   },
   "deliberative_reasoning_gate": {
     "engine": "UniCortexDeliberativeReasoner v2.0",
@@ -63,5 +64,38 @@
     "system_2_deliberation": "ACTIVE",
     "self_critique_gate": "ARMED",
     "ast_localization": "ENABLED"
+  },
+  "uniagi_epistemic_learning_state": {
+    "cortex_db_path": "/media/uniai/UniAi/AI/UniAGI/uniagi_experience_master.db",
+    "merkle_chain_valid": true,
+    "total_l0_episodes": 15338,
+    "total_l2_candidates": 11,
+    "active_l3_verified_assets": 12269,
+    "latest_consolidation": {
+      "l0_processed": 0,
+      "l1_generated": 0,
+      "l2_updated": 9,
+      "l3_promoted": 4,
+      "l3_invalidated": 0,
+      "total_active_l3_assets": 12269
+    },
+    "latest_materialization": {
+      "skills_updated": 4,
+      "assets_materialized": 12269,
+      "files_written": [
+        "/home/uniai/.agents/skills/kotlin-systems-architect/SKILL.md",
+        "/home/uniai/.gemini/antigravity/skills/kotlin-systems-architect/SKILL.md",
+        "/home/uniai/.gemini/antigravity-ide/skills/kotlin-systems-architect/SKILL.md",
+        "/home/uniai/.agents/skills/double-entry-accounting-and-ledger/SKILL.md",
+        "/home/uniai/.gemini/antigravity/skills/double-entry-accounting-and-ledger/SKILL.md",
+        "/home/uniai/.gemini/antigravity-ide/skills/double-entry-accounting-and-ledger/SKILL.md",
+        "/home/uniai/.agents/skills/compose-design-system-lead/SKILL.md",
+        "/home/uniai/.gemini/antigravity/skills/compose-design-system-lead/SKILL.md",
+        "/home/uniai/.gemini/antigravity-ide/skills/compose-design-system-lead/SKILL.md",
+        "/home/uniai/.agents/skills/local-data-offline-architect/SKILL.md",
+        "/home/uniai/.gemini/antigravity/skills/local-data-offline-architect/SKILL.md",
+        "/home/uniai/.gemini/antigravity-ide/skills/local-data-offline-architect/SKILL.md"
+      ]
+    }
   }
 }
